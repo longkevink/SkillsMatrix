@@ -1,0 +1,12 @@
+[
+  { "name": "ET", "type": "Weekday Show" },
+  { "name": "Today Show", "type": "Weekday Show" },
+  { "name": "4th Hour Today", "type": "Weekday Show" },
+  { "name": "Nightly News", "type": "Network" },
+  { "name": "MNN", "type": "News Now" },
+  { "name": "Specials Standby", "type": "Control Room" },
+  { "name": "NND 12p-4p", "type": "News Now" },
+  { "name": "MTPN", "type": "Control Room" },
+  { "name": "NNN Hallie", "type": "News Now" },
+  { "name": "Stay Tuned", "type": "News Now" }
+]
