@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AlertCircle, ChevronRight, TrendingUp, Users, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { AlertCircle, ChevronRight, AlertTriangle, CheckCircle2 } from "lucide-react";
 import type { DashboardData } from "@/src/lib/types";
 
 interface SkillsWidgetProps {

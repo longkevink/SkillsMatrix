@@ -1,10 +1,13 @@
 import { ChatInterface } from "@/src/components/dashboard/chat-interface";
-import { SkillsWidget } from "@/src/components/dashboard/skills-widget";
+import { KpiStrip } from "@/src/components/dashboard/kpi-strip";
+import { TrainingPipelineWidget } from "@/src/components/dashboard/training-pipeline-widget";
+import { ShowHeatmap } from "@/src/components/dashboard/show-heatmap";
+import { RoleRiskTable } from "@/src/components/dashboard/role-risk-table";
 import { BackfillWidget } from "@/src/components/dashboard/backfill-widget";
 import { getDashboardData } from "@/src/lib/data/dashboard";
 import { getBackfillPageData } from "@/src/lib/data/backfill";
 import { buildExecutiveSnapshot } from "@/src/lib/data/executive";
-import { uiFeatureFlags } from "@/src/lib/ui/feature-flags";
+import { buildDashboardAnalytics } from "@/src/lib/data/dashboard-analytics";
 
 export const dynamic = "force-dynamic";
 
@@ -27,47 +30,56 @@ export default async function DashboardPage() {
   }
 
   const snapshot = buildExecutiveSnapshot(dashboardData, backfillData);
+  const analytics = buildDashboardAnalytics(dashboardData, backfillData);
 
-  if (!uiFeatureFlags.premiumDashboardEnabled) {
+  if (!analytics) {
     return (
-      <div className="flex flex-col gap-8 pb-8">
-        <section className="relative ml-[calc(50%-50dvw)] flex min-h-[300px] w-[100dvw] max-w-none items-center justify-center overflow-hidden border border-[color:var(--border-subtle)] bg-[color:var(--surface-2)] px-4 md:px-8">
-          <div className="relative z-10 mx-auto w-full md:w-[75%]">
-            <ChatInterface snapshot={snapshot} />
-          </div>
-        </section>
-        <section className="grid flex-1 grid-cols-1 gap-6 lg:grid-cols-2">
-          <div className="h-full min-h-[400px]">
-            <SkillsWidget data={dashboardData} />
-          </div>
-          <div className="h-full min-h-[400px]">
-            <BackfillWidget data={backfillData} />
-          </div>
-        </section>
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="text-center">
+          <p className="text-lg font-semibold text-[color:var(--text-strong)]">Loading Dashboard</p>
+          <p className="mt-1 text-sm text-[color:var(--text-muted)]">Unable to fetch data. Please refresh.</p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="flex flex-col gap-4 pb-6">
-      <section className="relative ml-[calc(50%-50dvw)] flex min-h-[280px] w-[100dvw] max-w-none items-center justify-center overflow-hidden border border-[color:var(--border-subtle)] bg-[linear-gradient(165deg,var(--surface-1),var(--surface-2))] px-4 py-4 shadow-[0_20px_40px_-30px_rgba(15,23,42,0.55)]">
-        <div className="mx-auto w-full md:w-[75%]">
-          <ChatInterface snapshot={snapshot} />
-        </div>
-      </section>
+      {/* ── Row 1: KPI Strip ── */}
+      <KpiStrip analytics={analytics} />
 
-      <section className="grid flex-1 grid-cols-1 gap-4 xl:grid-cols-2">
-        <div className="flex flex-col gap-4">
-          <div className="h-full min-h-[400px]">
-            <SkillsWidget data={dashboardData} />
+      {/* ── Row 2: AI Assistant Bar ── */}
+      <ChatInterface snapshot={snapshot} />
+
+      {/* ── Row 3: Training Pipeline | Heatmap ── */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+        {/* Left col: Training Pipeline */}
+        <div className="xl:col-span-5">
+          <TrainingPipelineWidget analytics={analytics} />
+        </div>
+
+        {/* Right col: Heatmap */}
+        <div className="xl:col-span-7">
+          <div className="h-full rounded-xl border border-[color:var(--border-subtle)] bg-[linear-gradient(165deg,var(--surface-1),var(--surface-2))] p-4 shadow-[0_14px_28px_-20px_rgba(15,23,42,0.5)]">
+            <ShowHeatmap analytics={analytics} />
           </div>
         </div>
-        <div className="flex flex-col gap-4">
-          <div className="h-full min-h-[400px]">
-            <BackfillWidget data={backfillData} />
+      </div>
+
+      {/* ── Row 4: Risk Table | Backfill Intel ── */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+        {/* Left col: Role Risk Table */}
+        <div className="xl:col-span-7">
+          <div className="h-full rounded-xl border border-[color:var(--border-subtle)] bg-[linear-gradient(165deg,var(--surface-1),var(--surface-2))] p-4 shadow-[0_14px_28px_-20px_rgba(15,23,42,0.5)]">
+            <RoleRiskTable analytics={analytics} />
           </div>
         </div>
-      </section>
+
+        {/* Right col: Backfill Intel */}
+        <div className="xl:col-span-5">
+          <BackfillWidget data={backfillData} />
+        </div>
+      </div>
     </div>
   );
 }

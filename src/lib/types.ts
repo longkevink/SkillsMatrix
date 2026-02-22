@@ -106,3 +106,64 @@ export interface ReorderBackfillInput {
   backupResourceIds: string[];
   mockRole: MockRole;
 }
+
+/* ── Dashboard Analytics ────────────────────────────── */
+
+export interface StatusDistribution {
+  active: number;
+  training: number;
+  refresh: number;
+  na: number;
+  red: number;
+  total: number;
+}
+
+export interface HeatmapCell {
+  showId: string;
+  showName: string;
+  role: string;
+  dominantStatus: SkillStatus;
+  active: number;
+  training: number;
+  total: number;
+}
+
+export interface RoleRiskRow {
+  role: string;
+  activeCount: number;
+  trainingCount: number;
+  target: number;
+  deficit: number;
+  severity: "ok" | "warning" | "critical";
+}
+
+export interface TrainingPipelineItem {
+  resourceName: string;
+  role: string;
+  showName: string;
+  status: SkillStatus;
+}
+
+export interface TrainingInsight {
+  showName: string;
+  role: string;
+  reason: string;
+}
+
+export interface DashboardAnalytics {
+  totalStaff: number;
+  totalShows: number;
+  totalControlRooms: number;
+  activeAssignments: number;
+  trainingAssignments: number;
+  coverageScore: number;
+  openBackfillGaps: number;
+  readyBackfills: number;
+  statusDistribution: StatusDistribution;
+  heatmapData: HeatmapCell[];
+  roleRisks: RoleRiskRow[];
+  trainingPipeline: TrainingPipelineItem[];
+  trainingInsights: TrainingInsight[];
+  uniqueRoles: string[];
+  uniqueShowNames: string[];
+}

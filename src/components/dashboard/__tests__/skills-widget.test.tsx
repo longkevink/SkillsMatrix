@@ -1,182 +1,116 @@
-import { render, screen, within } from "@testing-library/react";
-import { describe, it, expect } from "vitest";
-import { SkillsWidget } from "@/src/components/dashboard/skills-widget";
-import type { DashboardData } from "@/src/lib/types";
+import { render, screen, cleanup } from "@testing-library/react";
+import { describe, it, expect, afterEach } from "vitest";
 
-describe("SkillsWidget", () => {
-    const baseShows = [
-        { id: "show-1", name: "Nightly Briefing", type: "Network" },
-        { id: "show-2", name: "Morning Recap", type: "Streaming" },
-    ];
-    const singleShow = [{ id: "show-1", name: "Nightly Briefing", type: "Network" }];
+afterEach(() => {
+    cleanup();
+});
+import { KpiStrip } from "@/src/components/dashboard/kpi-strip";
+import { TrainingPipelineWidget } from "@/src/components/dashboard/training-pipeline-widget";
+import { RoleRiskTable } from "@/src/components/dashboard/role-risk-table";
+import { ShowHeatmap } from "@/src/components/dashboard/show-heatmap";
+import type { DashboardAnalytics } from "@/src/lib/types";
 
-    const dataWithAlerts: DashboardData = {
-        shows: baseShows,
-        resources: [
-            {
-                id: "resource-a1-active",
-                name: "A1 Active",
-                role: "A1",
-                skills: {
-                    "show-1": { status: "Active", notes: null },
-                },
-                controlRoomSkills: {},
-            },
-            {
-                id: "resource-a1-training",
-                name: "A1 Training",
-                role: "A1",
-                skills: {
-                    "show-2": { status: "Training", notes: null },
-                },
-                controlRoomSkills: {},
-            },
-            {
-                id: "resource-a1-na",
-                name: "A1 NA",
-                role: "A1",
-                skills: {
-                    "show-1": { status: "NA", notes: null },
-                },
-                controlRoomSkills: {},
-            },
-            {
-                id: "resource-td-active",
-                name: "TD Active",
-                role: "TD",
-                skills: {
-                    "show-2": { status: "Active", notes: null },
-                },
-                controlRoomSkills: {},
-            },
-        ],
-    };
+const mockAnalytics: DashboardAnalytics = {
+    totalStaff: 10,
+    totalShows: 2,
+    totalControlRooms: 3,
+    activeAssignments: 8,
+    trainingAssignments: 4,
+    coverageScore: 62,
+    openBackfillGaps: 2,
+    readyBackfills: 3,
+    statusDistribution: {
+        active: 8,
+        training: 4,
+        refresh: 1,
+        na: 3,
+        red: 0,
+        total: 16,
+    },
+    heatmapData: [
+        { showId: "s1", showName: "Nightly Briefing", role: "A1", dominantStatus: "Active", active: 2, training: 1, total: 3 },
+        { showId: "s1", showName: "Nightly Briefing", role: "TD", dominantStatus: "Training", active: 1, training: 2, total: 3 },
+        { showId: "s2", showName: "Morning Recap", role: "A1", dominantStatus: "Red", active: 0, training: 0, total: 2 },
+        { showId: "s2", showName: "Morning Recap", role: "TD", dominantStatus: "Active", active: 3, training: 0, total: 3 },
+    ],
+    roleRisks: [
+        { role: "A1", activeCount: 2, trainingCount: 1, target: 2, deficit: 0, severity: "ok" },
+        { role: "TD", activeCount: 1, trainingCount: 2, target: 3, deficit: 2, severity: "critical" },
+    ],
+    trainingPipeline: [
+        { resourceName: "Alice Smith", role: "A1", showName: "Nightly Briefing", status: "Training" },
+        { resourceName: "Bob Jones", role: "TD", showName: "Nightly Briefing", status: "Training" }
+    ],
+    trainingInsights: [],
+    uniqueRoles: ["A1", "TD"],
+    uniqueShowNames: ["Nightly Briefing", "Morning Recap"],
+};
 
-    const dataWithoutAlerts: DashboardData = {
-        shows: singleShow,
-        resources: [
-            {
-                id: "resource-a1-active-one",
-                name: "A1 Active 1",
-                role: "A1",
-                skills: {
-                    "show-1": { status: "Active", notes: null },
-                },
-                controlRoomSkills: {},
-            },
-            {
-                id: "resource-a1-active-two",
-                name: "A1 Active 2",
-                role: "A1",
-                skills: {
-                    "show-1": { status: "Active", notes: null },
-                },
-                controlRoomSkills: {},
-            },
-            {
-                id: "resource-a1-training-one",
-                name: "A1 Training 1",
-                role: "A1",
-                skills: {
-                    "show-1": { status: "Training", notes: null },
-                },
-                controlRoomSkills: {},
-            },
-            {
-                id: "resource-a1-training-two",
-                name: "A1 Training 2",
-                role: "A1",
-                skills: {
-                    "show-1": { status: "Training", notes: null },
-                },
-                controlRoomSkills: {},
-            },
-            {
-                id: "resource-td-active-one",
-                name: "TD Active 1",
-                role: "TD",
-                skills: {
-                    "show-1": { status: "Active", notes: null },
-                },
-                controlRoomSkills: {},
-            },
-            {
-                id: "resource-td-active-two",
-                name: "TD Active 2",
-                role: "TD",
-                skills: {
-                    "show-1": { status: "Active", notes: null },
-                },
-                controlRoomSkills: {},
-            },
-            {
-                id: "resource-td-active-three",
-                name: "TD Active 3",
-                role: "TD",
-                skills: {
-                    "show-1": { status: "Active", notes: null },
-                },
-                controlRoomSkills: {},
-            },
-            {
-                id: "resource-td-training-one",
-                name: "TD Training 1",
-                role: "TD",
-                skills: {
-                    "show-1": { status: "Training", notes: null },
-                },
-                controlRoomSkills: {},
-            },
-            {
-                id: "resource-td-training-two",
-                name: "TD Training 2",
-                role: "TD",
-                skills: {
-                    "show-1": { status: "Training", notes: null },
-                },
-                controlRoomSkills: {},
-            },
-            {
-                id: "resource-td-training-three",
-                name: "TD Training 3",
-                role: "TD",
-                skills: {
-                    "show-1": { status: "Training", notes: null },
-                },
-                controlRoomSkills: {},
-            },
-        ],
-    };
+describe("KpiStrip", () => {
+    it("renders all 6 KPI tiles with correct values", () => {
+        render(<KpiStrip analytics={mockAnalytics} />);
 
-    it("shows counts per position and hides nominal message when there are alerts", () => {
-        render(<SkillsWidget data={dataWithAlerts} />);
+        expect(screen.getByTestId("kpi-strip")).toBeInTheDocument();
+        expect(screen.getByTestId("kpi-totalStaff")).toBeInTheDocument();
+        expect(screen.getByTestId("kpi-active")).toBeInTheDocument();
+        expect(screen.getByTestId("kpi-training")).toBeInTheDocument();
+        expect(screen.getByTestId("kpi-coverage")).toBeInTheDocument();
+        expect(screen.getByTestId("kpi-gaps")).toBeInTheDocument();
+        expect(screen.getByTestId("kpi-backfills")).toBeInTheDocument();
 
-        expect(screen.queryByText("All Systems Nominal")).toBeNull();
-
-        const a1Row = screen.getByText("A1").closest(".group");
-        expect(a1Row).toBeTruthy();
-        const a1Within = within(a1Row as HTMLElement);
-        // The ready count is prominently displayed
-        expect(a1Within.getByText("1", { selector: ".text-lg" })).toBeInTheDocument();
-
-        // Check stacked bar segments using data-testid
-        const availableSegment = screen.getByTestId("position-status-a1-available");
-        expect(within(availableSegment).getByText("33%")).toBeInTheDocument();
-        const trainingSegment = screen.getByTestId("position-status-a1-training");
-        expect(within(trainingSegment).getByText("33%")).toBeInTheDocument();
-        const naSegment = screen.getByTestId("position-status-a1-na");
-        expect(within(naSegment).getByText("33%")).toBeInTheDocument();
-
-        const tdRow = screen.getByText("TD").closest(".group");
-        expect(tdRow).toBeTruthy();
-        const tdWithin = within(tdRow as HTMLElement);
-        expect(tdWithin.getByText("1", { selector: ".text-lg" })).toBeInTheDocument();
-        const tdAvailableSegment = screen.getByTestId("position-status-td-available");
-        expect(within(tdAvailableSegment).getByText("100%")).toBeInTheDocument();
+        // Check key values are rendered
+        expect(screen.getByText("10")).toBeInTheDocument(); // totalStaff
+        expect(screen.getByText("62%")).toBeInTheDocument(); // coverage
     });
+});
 
-    it("shows the nominal status message when no alerts exist", () => {
-        render(<SkillsWidget data={dataWithoutAlerts} />);
-        expect(screen.getByText("All Systems Nominal")).toBeInTheDocument();
+describe("TrainingPipelineWidget", () => {
+    it("renders active training assignments grouped by role", () => {
+        render(<TrainingPipelineWidget analytics={mockAnalytics} />);
+
+        expect(screen.getByTestId("training-pipeline")).toBeInTheDocument();
+        expect(screen.getByText("2 Active")).toBeInTheDocument();
+        expect(screen.getByText("Alice Smith")).toBeInTheDocument();
+        expect(screen.getByText("Bob Jones")).toBeInTheDocument();
+    });
+});
+
+describe("RoleRiskTable", () => {
+    it("renders role risks with correct deficit and severity", () => {
+        render(<RoleRiskTable analytics={mockAnalytics} />);
+
+        expect(screen.getByTestId("role-risk-table")).toBeInTheDocument();
+
+        // Check role names
+        expect(screen.getByText("A1")).toBeInTheDocument();
+        expect(screen.getByText("TD")).toBeInTheDocument();
+
+        // Check TD shows critical severity
+        expect(screen.getByText("Critical")).toBeInTheDocument();
+        expect(screen.getByText("Covered")).toBeInTheDocument();
+
+        // Check deficit
+        expect(screen.getByText("-2")).toBeInTheDocument();
+
+        // Shows count of roles below target
+        expect(screen.getByText(/roles below target/)).toBeInTheDocument();
+    });
+});
+
+describe("ShowHeatmap", () => {
+    it("renders a heatmap grid with shows and roles and special formatting", () => {
+        render(<ShowHeatmap analytics={mockAnalytics} />);
+
+        expect(screen.getByTestId("show-heatmap")).toBeInTheDocument();
+        expect(screen.getByText("Nightly Briefing")).toBeInTheDocument();
+
+        // Active cell shows '2'
+        expect(screen.getByText("2")).toBeInTheDocument();
+
+        // Training cell shows '2T'
+        expect(screen.getByText("2T")).toBeInTheDocument();
+
+        // Red cell shows '0'
+        expect(screen.getByText("0")).toBeInTheDocument();
     });
 });
