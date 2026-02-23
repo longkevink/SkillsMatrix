@@ -1,0 +1,34 @@
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+
+export function middleware(request: NextRequest) {
+    const { pathname } = request.nextUrl;
+
+    // Allow static assets, images, and the login page itself to pass through
+    if (
+        pathname.startsWith('/_next') ||
+        pathname.startsWith('/login') ||
+        pathname.endsWith('.png') ||
+        pathname.endsWith('.jpg') ||
+        pathname.endsWith('.svg') ||
+        pathname.includes('favicon')
+    ) {
+        return NextResponse.next();
+    }
+
+    // Check for the authentication cookie
+    const authCookie = request.cookies.get('site_auth');
+
+    // If no auth cookie, redirect to login page
+    if (!authCookie || authCookie.value !== 'authenticated') {
+        const loginUrl = new URL('/login', request.url);
+        return NextResponse.redirect(loginUrl);
+    }
+
+    return NextResponse.next();
+}
+
+export const config = {
+    // Match all request paths except for the ones starting with API routes, _next/static, _next/image, and favicon
+    matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
+};
