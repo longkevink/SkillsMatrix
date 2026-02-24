@@ -34,6 +34,7 @@ Required values:
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `GEMINI_API_KEY`
 - `GEMINI_MODEL` (optional, defaults to `gemini-2.0-flash`)
+- `CHAT_ALIAS_V2` (optional, defaults to `false`; set `true` to enable alias-table inference pipeline)
 - `APP_MOCK_ROLE_DEFAULT` (optional, defaults to `Read Only`)
 
 ## Supabase setup

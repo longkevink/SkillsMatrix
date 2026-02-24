@@ -133,6 +133,14 @@ export async function POST(request: NextRequest) {
       allowPhoneNumbers: isExplicitPhoneRequest(parsed.data.message),
     });
 
+    console.info("chat_resolution_event", {
+      input_term: result.resolutionMeta?.inputTerm ?? null,
+      resolved_term: result.resolutionMeta?.resolvedTerm ?? null,
+      confidence: result.resolutionMeta?.confidence ?? null,
+      needs_clarification: result.resolutionMeta?.needsClarification ?? null,
+      tool_used: result.toolUsed ?? null,
+    });
+
     const updatedTurns = [
       ...history,
       { role: "user", content: parsed.data.message } satisfies ChatTurn,
@@ -150,6 +158,7 @@ export async function POST(request: NextRequest) {
       meta: {
         toolUsed: result.toolUsed,
         latencyMs: Date.now() - startedAt,
+        resolution: result.resolutionMeta ?? null,
       },
     });
   } catch (error) {

@@ -7,6 +7,12 @@ describe("chat term normalization", () => {
     expect(normalizeShowInput("nn")).toBe("Nightly News");
     expect(normalizeShowInput("nightly news")).toBe("Nightly News");
     expect(normalizeShowInput("Today Show")).toBe("Today Show");
+    expect(normalizeShowInput("4th hour")).toBe("4th Hour Today");
+    expect(normalizeShowInput("news now daily")).toBe("NND 12p-4p");
+    expect(normalizeShowInput("nnn")).toBe("NND 12p-4p");
+    expect(normalizeShowInput("sr")).toBe("Specials Standby");
+    expect(normalizeShowInput("specials")).toBe("Specials Standby");
+    expect(normalizeShowInput("tdy")).toBe("Today Show");
   });
 
   it("normalizes role aliases", () => {
@@ -178,6 +184,54 @@ describe("chat tool executor", () => {
       showName: "Nightly News",
       role: "TD",
       includePhone: false,
+    });
+  });
+
+  it("returns clarification metadata from resolve_show_role_terms", async () => {
+    const resolveShowAndRoleMock = vi.fn(async () => ({
+      show: null,
+      role: "TD",
+      normalizedShowInput: "news now daliy",
+      normalizedRoleInput: "td",
+      showResolution: {
+        input: "news now daliy",
+        normalizedInput: "news now daliy",
+        resolvedValue: null,
+        confidence: 0.52,
+        stage: "fuzzy" as const,
+        candidates: ["NND 12p-4p", "NNN Hallie"],
+        needsClarification: true,
+        clarificationPrompt: 'I couldn\'t confidently map show "news now daliy". Did you mean "NND 12p-4p", "NNN Hallie"?',
+      },
+      roleResolution: {
+        input: "td",
+        normalizedInput: "td",
+        resolvedValue: "TD",
+        confidence: 1,
+        stage: "canonical_exact" as const,
+        candidates: ["TD"],
+        needsClarification: false,
+        clarificationPrompt: null,
+      },
+    }));
+
+    const execute = createChatToolExecutor({
+      resolveShowAndRole: resolveShowAndRoleMock,
+    });
+
+    const result = await execute(
+      "resolve_show_role_terms",
+      {
+        showName: "news now daliy",
+        role: "td",
+      },
+      { allowPhoneNumbers: false }
+    );
+
+    expect(result).toMatchObject({
+      ok: true,
+      needsClarification: true,
+      confidence: 0.52,
     });
   });
 });

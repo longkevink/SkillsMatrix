@@ -35,10 +35,34 @@ interface SkillWithShowRow extends SkillRow {
   show_id: string;
 }
 
+interface TermAliasRow {
+  alias: string;
+  canonical_value: string;
+  entity_type: "show" | "role" | "control_room" | "phrase";
+  confidence_override: number | null;
+  is_active: boolean;
+}
+
 export interface ResolvedShow {
   id: string;
   name: string;
   type: string;
+}
+
+export type ResolutionStage = "canonical_exact" | "alias_exact" | "fuzzy" | "none";
+
+export interface ClarificationResult {
+  needsClarification: boolean;
+  clarificationPrompt: string | null;
+}
+
+export interface ResolvedEntityResult extends ClarificationResult {
+  input: string | null;
+  normalizedInput: string | null;
+  resolvedValue: string | null;
+  confidence: number;
+  stage: ResolutionStage;
+  candidates: string[];
 }
 
 export interface ResolveShowRoleResult {
@@ -46,6 +70,8 @@ export interface ResolveShowRoleResult {
   role: string | null;
   normalizedShowInput: string | null;
   normalizedRoleInput: string | null;
+  showResolution: ResolvedEntityResult;
+  roleResolution: ResolvedEntityResult;
 }
 
 export interface BackfillCandidate {
@@ -161,6 +187,12 @@ const SHOW_ALIASES: Record<string, string> = {
   today: "Today Show",
   "4th hour": "4th Hour Today",
   "4th hour today": "4th Hour Today",
+  "news now daily": "NND 12p-4p",
+  "nbc news now": "NND 12p-4p",
+  nnn: "NND 12p-4p",
+  sr: "Specials Standby",
+  specials: "Specials Standby",
+  tdy: "Today Show",
 };
 
 const ROLE_ALIASES: Record<string, string> = {
@@ -179,8 +211,33 @@ const ROLE_ALIASES: Record<string, string> = {
   v1: "V1",
 };
 
+const HIGH_CONFIDENCE_THRESHOLD = 0.85;
+const MEDIUM_CONFIDENCE_THRESHOLD = 0.6;
+
+function parseBooleanEnvFlag(value: string | undefined, fallback: boolean) {
+  if (value == null) {
+    return fallback;
+  }
+  const normalized = value.trim().toLowerCase();
+  if (["1", "true", "yes", "on"].includes(normalized)) {
+    return true;
+  }
+  if (["0", "false", "no", "off"].includes(normalized)) {
+    return false;
+  }
+  return fallback;
+}
+
+function aliasV2Enabled() {
+  return parseBooleanEnvFlag(process.env.CHAT_ALIAS_V2, false);
+}
+
 function normalizeLookupValue(value: string) {
-  return value.trim().toLowerCase().replace(/\s+/g, " ");
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[.,/#!$%^&*;:{}=_`~()'"]/g, " ")
+    .replace(/\s+/g, " ");
 }
 
 function isNonNull<T>(value: T | null): value is T {
@@ -197,51 +254,201 @@ export function normalizeRoleInput(value: string) {
   return ROLE_ALIASES[normalized] ?? value.trim();
 }
 
-function resolveShowFromList(shows: ShowRow[], showInput: string) {
-  const aliasAdjusted = normalizeShowInput(showInput);
-  const normalized = normalizeLookupValue(aliasAdjusted);
-
-  const exact = shows.find((show) => normalizeLookupValue(show.name) === normalized);
-  if (exact) {
-    return exact;
-  }
-
-  const contains = shows.find((show) => normalizeLookupValue(show.name).includes(normalized));
-  return contains ?? null;
+function uniqueStrings(values: string[]) {
+  return [...new Set(values)];
 }
 
-function resolveShowsFromList(shows: ShowRow[], showInputs: string[]) {
-  const uniqueInputs = [...new Set(showInputs.map((value) => value.trim()).filter(Boolean))];
+function rankFuzzyCandidates(items: string[], normalizedInput: string) {
+  const scored = items
+    .map((item) => {
+      const normalizedItem = normalizeLookupValue(item);
+      if (!normalizedInput || !normalizedItem) {
+        return null;
+      }
 
-  const resolved: ShowRow[] = [];
-  const unresolved: string[] = [];
+      if (normalizedItem === normalizedInput) {
+        return { item, score: 1 };
+      }
 
-  for (const input of uniqueInputs) {
-    const match = resolveShowFromList(shows, input);
-    if (!match) {
-      unresolved.push(input);
-      continue;
-    }
+      if (normalizedItem.startsWith(normalizedInput) || normalizedInput.startsWith(normalizedItem)) {
+        return { item, score: 0.78 };
+      }
 
-    if (!resolved.some((show) => show.id === match.id)) {
-      resolved.push(match);
-    }
-  }
+      if (normalizedItem.includes(normalizedInput) || normalizedInput.includes(normalizedItem)) {
+        return { item, score: 0.7 };
+      }
 
-  return { resolved, unresolved };
+      const inputTokens = new Set(normalizedInput.split(" ").filter(Boolean));
+      const itemTokens = normalizedItem.split(" ").filter(Boolean);
+      const overlap = itemTokens.filter((token) => inputTokens.has(token)).length;
+      if (overlap === 0) {
+        return null;
+      }
+
+      const score = Math.min(0.68, 0.45 + overlap / Math.max(itemTokens.length, inputTokens.size));
+      return { item, score };
+    })
+    .filter((row): row is { item: string; score: number } => Boolean(row))
+    .sort((a, b) => b.score - a.score || a.item.localeCompare(b.item));
+
+  return scored.slice(0, 3);
 }
 
-function resolveRoleFromList(roles: string[], roleInput: string) {
-  const aliasAdjusted = normalizeRoleInput(roleInput);
-  const normalized = normalizeLookupValue(aliasAdjusted);
-
-  const exact = roles.find((role) => normalizeLookupValue(role) === normalized);
-  if (exact) {
-    return exact;
+function buildClarification(entityLabel: string, input: string | null, candidates: string[]): ClarificationResult {
+  if (!input) {
+    return {
+      needsClarification: false,
+      clarificationPrompt: null,
+    };
   }
 
-  const contains = roles.find((role) => normalizeLookupValue(role).includes(normalized));
-  return contains ?? null;
+  if (candidates.length > 0) {
+    return {
+      needsClarification: true,
+      clarificationPrompt: `I couldn't confidently map ${entityLabel} \"${input}\". Did you mean ${candidates
+        .map((candidate) => `"${candidate}"`)
+        .join(", ")}?`,
+    };
+  }
+
+  return {
+    needsClarification: true,
+    clarificationPrompt: `I couldn't find a matching ${entityLabel} for \"${input}\". Please specify the exact ${entityLabel}.`,
+  };
+}
+
+async function loadTermAliases(entityType: "show" | "role") {
+  if (!aliasV2Enabled()) {
+    return [] as TermAliasRow[];
+  }
+
+  const supabase = getSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("term_aliases")
+    .select("alias,canonical_value,entity_type,confidence_override,is_active")
+    .eq("is_active", true)
+    .eq("entity_type", entityType);
+
+  if (error) {
+    return [] as TermAliasRow[];
+  }
+
+  return (data ?? []) as TermAliasRow[];
+}
+
+async function resolveEntity(input: {
+  rawValue?: string;
+  entityType: "show" | "role";
+  canonicalItems: string[];
+  hardcodedAliases: Record<string, string>;
+}): Promise<ResolvedEntityResult> {
+  const raw = input.rawValue?.trim() ?? "";
+  if (!raw) {
+    return {
+      input: null,
+      normalizedInput: null,
+      resolvedValue: null,
+      confidence: 0,
+      stage: "none",
+      candidates: [],
+      needsClarification: false,
+      clarificationPrompt: null,
+    };
+  }
+
+  const normalizedInput = normalizeLookupValue(raw);
+  const canonicalByNormalized = new Map(
+    input.canonicalItems.map((item) => [normalizeLookupValue(item), item] as const)
+  );
+
+  const exact = canonicalByNormalized.get(normalizedInput);
+  if (exact) {
+    return {
+      input: raw,
+      normalizedInput,
+      resolvedValue: exact,
+      confidence: 1,
+      stage: "canonical_exact",
+      candidates: [exact],
+      needsClarification: false,
+      clarificationPrompt: null,
+    };
+  }
+
+  const aliasRows = await loadTermAliases(input.entityType);
+  const aliasMap = new Map<string, { canonical: string; confidenceOverride: number | null }>();
+
+  for (const row of aliasRows) {
+    aliasMap.set(normalizeLookupValue(row.alias), {
+      canonical: row.canonical_value,
+      confidenceOverride: row.confidence_override,
+    });
+  }
+
+  for (const [alias, canonical] of Object.entries(input.hardcodedAliases)) {
+    const normalizedAlias = normalizeLookupValue(alias);
+    if (!aliasMap.has(normalizedAlias)) {
+      aliasMap.set(normalizedAlias, { canonical, confidenceOverride: null });
+    }
+  }
+
+  const aliasMatch = aliasMap.get(normalizedInput);
+  if (aliasMatch) {
+    const canonicalResolved =
+      canonicalByNormalized.get(normalizeLookupValue(aliasMatch.canonical)) ??
+      input.canonicalItems.find(
+        (item) =>
+          normalizeLookupValue(item).includes(normalizeLookupValue(aliasMatch.canonical)) ||
+          normalizeLookupValue(aliasMatch.canonical).includes(normalizeLookupValue(item))
+      ) ??
+      null;
+
+    if (canonicalResolved) {
+      return {
+        input: raw,
+        normalizedInput,
+        resolvedValue: canonicalResolved,
+        confidence: aliasMatch.confidenceOverride ?? 0.97,
+        stage: "alias_exact",
+        candidates: [canonicalResolved],
+        needsClarification: false,
+        clarificationPrompt: null,
+      };
+    }
+  }
+
+  const fuzzy = rankFuzzyCandidates(input.canonicalItems, normalizedInput);
+  if (fuzzy.length === 0) {
+    const clarification = buildClarification(input.entityType, raw, []);
+    return {
+      input: raw,
+      normalizedInput,
+      resolvedValue: null,
+      confidence: 0,
+      stage: "none",
+      candidates: [],
+      ...clarification,
+    };
+  }
+
+  const top = fuzzy[0];
+  const candidateValues = uniqueStrings(fuzzy.map((entry) => entry.item));
+  const hasCompetingTop = fuzzy.length > 1 && Math.abs(fuzzy[0].score - fuzzy[1].score) < 0.12;
+  const needsClarification = top.score < HIGH_CONFIDENCE_THRESHOLD && (hasCompetingTop || top.score < MEDIUM_CONFIDENCE_THRESHOLD);
+
+  const clarification = needsClarification
+    ? buildClarification(input.entityType, raw, candidateValues)
+    : { needsClarification: false, clarificationPrompt: null };
+
+  return {
+    input: raw,
+    normalizedInput,
+    resolvedValue: needsClarification ? null : top.item,
+    confidence: top.score,
+    stage: "fuzzy",
+    candidates: candidateValues,
+    ...clarification,
+  };
 }
 
 async function getShows() {
@@ -272,11 +479,24 @@ export async function resolveShowAndRole(input: {
 }): Promise<ResolveShowRoleResult> {
   const [shows, roles] = await Promise.all([getShows(), getRoles()]);
 
-  const normalizedShowInput = input.showName?.trim() ? normalizeShowInput(input.showName) : null;
-  const normalizedRoleInput = input.role?.trim() ? normalizeRoleInput(input.role) : null;
+  const showResolution = await resolveEntity({
+    rawValue: input.showName,
+    entityType: "show",
+    canonicalItems: shows.map((show) => show.name),
+    hardcodedAliases: SHOW_ALIASES,
+  });
 
-  const show = normalizedShowInput ? resolveShowFromList(shows, normalizedShowInput) : null;
-  const role = normalizedRoleInput ? resolveRoleFromList(roles, normalizedRoleInput) : null;
+  const roleResolution = await resolveEntity({
+    rawValue: input.role,
+    entityType: "role",
+    canonicalItems: roles,
+    hardcodedAliases: ROLE_ALIASES,
+  });
+
+  const show = showResolution.resolvedValue
+    ? shows.find((row) => row.name === showResolution.resolvedValue) ?? null
+    : null;
+  const role = roleResolution.resolvedValue;
 
   return {
     show: show
@@ -286,9 +506,11 @@ export async function resolveShowAndRole(input: {
           type: show.type,
         }
       : null,
-    role,
-    normalizedShowInput,
-    normalizedRoleInput,
+    role: role ?? null,
+    normalizedShowInput: showResolution.normalizedInput,
+    normalizedRoleInput: roleResolution.normalizedInput,
+    showResolution,
+    roleResolution,
   };
 }
 
@@ -299,23 +521,23 @@ export async function findBestBackfillCandidate(input: {
 }): Promise<BestBackfillResult> {
   const resolved = await resolveShowAndRole({ showName: input.showName, role: input.role });
 
-  if (!resolved.show) {
+  if (!resolved.show || resolved.showResolution.needsClarification) {
     return {
       show: null,
       role: resolved.role,
       best: null,
       alternatives: [],
-      reason: `Could not find show \"${input.showName}\".`,
+      reason: resolved.showResolution.clarificationPrompt ?? `Could not find show \"${input.showName}\".`,
     };
   }
 
-  if (!resolved.role) {
+  if (!resolved.role || resolved.roleResolution.needsClarification) {
     return {
       show: resolved.show.name,
       role: null,
       best: null,
       alternatives: [],
-      reason: `Could not find role \"${input.role}\".`,
+      reason: resolved.roleResolution.clarificationPrompt ?? `Could not find role \"${input.role}\".`,
     };
   }
 
@@ -402,21 +624,21 @@ export async function listApprovedStaff(input: {
 }): Promise<ApprovedStaffResult> {
   const resolved = await resolveShowAndRole({ showName: input.showName, role: input.role });
 
-  if (!resolved.show) {
+  if (!resolved.show || resolved.showResolution.needsClarification) {
     return {
       show: null,
       role: resolved.role,
       members: [],
-      reason: `Could not find show \"${input.showName}\".`,
+      reason: resolved.showResolution.clarificationPrompt ?? `Could not find show \"${input.showName}\".`,
     };
   }
 
-  if (!resolved.role) {
+  if (!resolved.role || resolved.roleResolution.needsClarification) {
     return {
       show: resolved.show.name,
       role: null,
       members: [],
-      reason: `Could not find role \"${input.role}\".`,
+      reason: resolved.roleResolution.clarificationPrompt ?? `Could not find role \"${input.role}\".`,
     };
   }
 
@@ -488,31 +710,60 @@ export async function listApprovedStaffAcrossShows(input: {
   }
 
   const [shows, roles] = await Promise.all([getShows(), getRoles()]);
-  const resolvedShows = resolveShowsFromList(shows, requestedShowNames);
-  const role = resolveRoleFromList(roles, input.role);
 
-  if (resolvedShows.resolved.length === 0) {
+  const roleResolution = await resolveEntity({
+    rawValue: input.role,
+    entityType: "role",
+    canonicalItems: roles,
+    hardcodedAliases: ROLE_ALIASES,
+  });
+
+  const showResolutions = await Promise.all(
+    requestedShowNames.map((showName) =>
+      resolveEntity({
+        rawValue: showName,
+        entityType: "show",
+        canonicalItems: shows.map((show) => show.name),
+        hardcodedAliases: SHOW_ALIASES,
+      })
+    )
+  );
+
+  const resolvedShows = showResolutions
+    .map((resolution) => resolution.resolvedValue)
+    .filter((value): value is string => Boolean(value))
+    .map((showName) => shows.find((show) => show.name === showName))
+    .filter((show): show is ShowRow => Boolean(show));
+
+  const unresolvedShows = showResolutions
+    .filter((resolution) => !resolution.resolvedValue)
+    .map((resolution) => resolution.input ?? "")
+    .filter(Boolean);
+
+  const role = roleResolution.resolvedValue;
+
+  if (resolvedShows.length === 0) {
     return {
       shows: [],
-      unresolvedShows: resolvedShows.unresolved,
+      unresolvedShows,
       role,
       members: [],
       reason: "Could not resolve any requested shows.",
     };
   }
 
-  if (!role) {
+  if (!role || roleResolution.needsClarification) {
     return {
-      shows: resolvedShows.resolved.map((show) => show.name),
-      unresolvedShows: resolvedShows.unresolved,
+      shows: resolvedShows.map((show) => show.name),
+      unresolvedShows,
       role: null,
       members: [],
-      reason: `Could not find role \"${input.role}\".`,
+      reason: roleResolution.clarificationPrompt ?? `Could not find role \"${input.role}\".`,
     };
   }
 
   const supabase = getSupabaseAdminClient();
-  const showIds = resolvedShows.resolved.map((show) => show.id);
+  const showIds = [...new Set(resolvedShows.map((show) => show.id))];
 
   const { data: activeRows, error: activeError } = await supabase
     .from("resource_skills")
@@ -537,8 +788,8 @@ export async function listApprovedStaffAcrossShows(input: {
 
   if (intersectionResourceIds.length === 0) {
     return {
-      shows: resolvedShows.resolved.map((show) => show.name),
-      unresolvedShows: resolvedShows.unresolved,
+      shows: resolvedShows.map((show) => show.name),
+      unresolvedShows,
       role,
       members: [],
       reason: "No approved crew found for this role across all requested shows.",
@@ -565,8 +816,8 @@ export async function listApprovedStaffAcrossShows(input: {
   }));
 
   return {
-    shows: resolvedShows.resolved.map((show) => show.name),
-    unresolvedShows: resolvedShows.unresolved,
+    shows: resolvedShows.map((show) => show.name),
+    unresolvedShows,
     role,
     members,
     reason: members.length === 0 ? "No approved crew found for this role across all requested shows." : undefined,
@@ -616,7 +867,24 @@ export async function analyzeRoleCoverage(input: { showName?: string }): Promise
 
   let resolvedShow: ShowRow | null = null;
   if (input.showName?.trim()) {
-    resolvedShow = resolveShowFromList(shows, input.showName);
+    const showResolution = await resolveEntity({
+      rawValue: input.showName,
+      entityType: "show",
+      canonicalItems: shows.map((show) => show.name),
+      hardcodedAliases: SHOW_ALIASES,
+    });
+
+    if (!showResolution.resolvedValue || showResolution.needsClarification) {
+      return {
+        scope: "single_show",
+        show: null,
+        roleBreakdown: roles.map((role) => createEmptyRoleCoverage(role)),
+        leastActiveRoles: roles.map((role) => createEmptyRoleCoverage(role)),
+        reason: showResolution.clarificationPrompt ?? `Could not find show \"${input.showName}\".`,
+      };
+    }
+
+    resolvedShow = shows.find((show) => show.name === showResolution.resolvedValue) ?? null;
     if (!resolvedShow) {
       return {
         scope: "single_show",
@@ -687,31 +955,44 @@ export async function querySkills(input: {
   limit?: number;
 }): Promise<SkillsQueryResult> {
   const [shows, roles] = await Promise.all([getShows(), getRoles()]);
-  const normalizedShowInput = input.showName?.trim() ? normalizeShowInput(input.showName) : null;
-  const normalizedRoleInput = input.role?.trim() ? normalizeRoleInput(input.role) : null;
   const normalizedResourceName = input.resourceName?.trim().toLowerCase() ?? null;
 
-  const resolvedShow = normalizedShowInput ? resolveShowFromList(shows, normalizedShowInput) : null;
-  if (normalizedShowInput && !resolvedShow) {
+  const showResolution = await resolveEntity({
+    rawValue: input.showName,
+    entityType: "show",
+    canonicalItems: shows.map((show) => show.name),
+    hardcodedAliases: SHOW_ALIASES,
+  });
+  const roleResolution = await resolveEntity({
+    rawValue: input.role,
+    entityType: "role",
+    canonicalItems: roles,
+    hardcodedAliases: ROLE_ALIASES,
+  });
+
+  const resolvedShow = showResolution.resolvedValue
+    ? shows.find((show) => show.name === showResolution.resolvedValue) ?? null
+    : null;
+  if (input.showName?.trim() && (!resolvedShow || showResolution.needsClarification)) {
     return {
       show: null,
-      role: normalizedRoleInput,
+      role: roleResolution.resolvedValue,
       status: input.status ?? null,
       resourceName: input.resourceName?.trim() || null,
       matches: [],
-      reason: `Could not find show \"${input.showName}\".`,
+      reason: showResolution.clarificationPrompt ?? `Could not find show \"${input.showName}\".`,
     };
   }
 
-  const resolvedRole = normalizedRoleInput ? resolveRoleFromList(roles, normalizedRoleInput) : null;
-  if (normalizedRoleInput && !resolvedRole) {
+  const resolvedRole = roleResolution.resolvedValue;
+  if (input.role?.trim() && (!resolvedRole || roleResolution.needsClarification)) {
     return {
       show: resolvedShow?.name ?? null,
       role: null,
       status: input.status ?? null,
       resourceName: input.resourceName?.trim() || null,
       matches: [],
-      reason: `Could not find role \"${input.role}\".`,
+      reason: roleResolution.clarificationPrompt ?? `Could not find role \"${input.role}\".`,
     };
   }
 
@@ -819,24 +1100,38 @@ export async function analyzeBackfillInsights(input: {
   includePhone?: boolean;
 }): Promise<BackfillInsightsResult> {
   const [shows, roles] = await Promise.all([getShows(), getRoles()]);
-  const resolvedShow = input.showName?.trim() ? resolveShowFromList(shows, input.showName) : null;
-  const resolvedRole = input.role?.trim() ? resolveRoleFromList(roles, input.role) : null;
+  const showResolution = await resolveEntity({
+    rawValue: input.showName,
+    entityType: "show",
+    canonicalItems: shows.map((show) => show.name),
+    hardcodedAliases: SHOW_ALIASES,
+  });
+  const roleResolution = await resolveEntity({
+    rawValue: input.role,
+    entityType: "role",
+    canonicalItems: roles,
+    hardcodedAliases: ROLE_ALIASES,
+  });
+  const resolvedShow = showResolution.resolvedValue
+    ? shows.find((show) => show.name === showResolution.resolvedValue) ?? null
+    : null;
+  const resolvedRole = roleResolution.resolvedValue;
 
-  if (input.showName?.trim() && !resolvedShow) {
+  if (input.showName?.trim() && (!resolvedShow || showResolution.needsClarification)) {
     return {
       show: null,
       role: resolvedRole ?? null,
       insights: [],
-      reason: `Could not find show \"${input.showName}\".`,
+      reason: showResolution.clarificationPrompt ?? `Could not find show \"${input.showName}\".`,
     };
   }
 
-  if (input.role?.trim() && !resolvedRole) {
+  if (input.role?.trim() && (!resolvedRole || roleResolution.needsClarification)) {
     return {
       show: resolvedShow?.name ?? null,
       role: null,
       insights: [],
-      reason: `Could not find role \"${input.role}\".`,
+      reason: roleResolution.clarificationPrompt ?? `Could not find role \"${input.role}\".`,
     };
   }
 

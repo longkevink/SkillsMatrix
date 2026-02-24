@@ -39,6 +39,12 @@ export interface GenerateGeminiChatInput {
 export interface GenerateGeminiChatResult {
   answer: string;
   toolUsed?: string;
+  resolutionMeta?: {
+    inputTerm?: string | null;
+    resolvedTerm?: string | null;
+    confidence?: number;
+    needsClarification?: boolean;
+  };
 }
 
 const SYSTEM_INSTRUCTION = [
@@ -49,6 +55,7 @@ const SYSTEM_INSTRUCTION = [
   "Use query_skills for direct skills lookups by show, role, status, or person.",
   "Use backfill_insights to evaluate backfill gaps and recommended fill candidates.",
   "For questions about least/most active roles, coverage, or role-level comparisons, use role_coverage_analysis and consider all roles and all statuses in scope.",
+  "When show/role resolution indicates low confidence or needs clarification, ask the clarification question before attempting final staffing answers.",
   "Best backfill means rank order from configured backfill preferences.",
   "Do not expose notes.",
   "Only include phone numbers when the user explicitly requests contact information.",
@@ -147,6 +154,7 @@ export async function generateGeminiChatResponse(
 ): Promise<GenerateGeminiChatResult> {
   const contents = toGeminiContents(input.history, input.message);
   let lastToolUsed: string | undefined;
+  let resolutionMeta: GenerateGeminiChatResult["resolutionMeta"];
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
     const response = await callGemini(contents);
@@ -169,6 +177,23 @@ export async function generateGeminiChatResponse(
           allowPhoneNumbers: input.allowPhoneNumbers,
         });
 
+        if (toolName === "resolve_show_role_terms" && toolResult && typeof toolResult === "object") {
+          const resultRecord = toolResult as Record<string, unknown>;
+          const showResolution =
+            resultRecord.showResolution && typeof resultRecord.showResolution === "object"
+              ? (resultRecord.showResolution as Record<string, unknown>)
+              : null;
+          resolutionMeta = {
+            inputTerm: (showResolution?.input as string | null | undefined) ?? null,
+            resolvedTerm: (showResolution?.resolvedValue as string | null | undefined) ?? null,
+            confidence: typeof resultRecord.confidence === "number" ? resultRecord.confidence : undefined,
+            needsClarification:
+              typeof resultRecord.needsClarification === "boolean"
+                ? resultRecord.needsClarification
+                : undefined,
+          };
+        }
+
         lastToolUsed = toolName;
 
         contents.push({
@@ -190,6 +215,7 @@ export async function generateGeminiChatResponse(
       return {
         answer: text,
         toolUsed: lastToolUsed,
+        resolutionMeta,
       };
     }
   }
@@ -198,5 +224,6 @@ export async function generateGeminiChatResponse(
     answer:
       "I couldn't complete that request yet. Please try again with the show and role names in the same message.",
     toolUsed: lastToolUsed,
+    resolutionMeta,
   };
 }
