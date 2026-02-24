@@ -70,8 +70,8 @@ function getGeminiConfig() {
 }
 
 function toGeminiContents(history: ChatTurn[], message: string): GeminiContent[] {
-  const historyContents = history.slice(-12).map((turn) => ({
-    role: turn.role === "assistant" ? "model" : "user",
+  const historyContents: GeminiContent[] = history.slice(-12).map((turn) => ({
+    role: turn.role === "assistant" ? ("model" as const) : ("user" as const),
     parts: [{ text: turn.content }],
   }));
 

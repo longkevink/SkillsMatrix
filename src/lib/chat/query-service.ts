@@ -183,6 +183,10 @@ function normalizeLookupValue(value: string) {
   return value.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
+function isNonNull<T>(value: T | null): value is T {
+  return value !== null;
+}
+
 export function normalizeShowInput(value: string) {
   const normalized = normalizeLookupValue(value);
   return SHOW_ALIASES[normalized] ?? value.trim();
@@ -379,7 +383,7 @@ export async function findBestBackfillCandidate(input: {
         phone: input.includePhone ? resource.phone ?? undefined : undefined,
       } satisfies BackfillCandidate;
     })
-    .filter((candidate): candidate is BackfillCandidate => Boolean(candidate));
+    .filter(isNonNull);
 
   const best = candidates.find((candidate) => !candidate.isPermanentCrew) ?? candidates[0] ?? null;
 
@@ -806,7 +810,7 @@ function buildBackfillRows(
         phone: includePhone ? resource.phone ?? undefined : undefined,
       } satisfies BackfillRecommendation;
     })
-    .filter((row): row is BackfillRecommendation => Boolean(row));
+    .filter(isNonNull);
 }
 
 export async function analyzeBackfillInsights(input: {
