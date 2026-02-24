@@ -176,6 +176,13 @@ export interface BackfillInsightsResult {
   show: string | null;
   role: string | null;
   insights: BackfillInsightRow[];
+  lowestBackfillSummary?: {
+    role: string;
+    metric: "backupActiveCount";
+    minimum: number;
+    shows: string[];
+    tied: boolean;
+  } | null;
   reason?: string;
 }
 
@@ -197,18 +204,27 @@ const SHOW_ALIASES: Record<string, string> = {
 
 const ROLE_ALIASES: Record<string, string> = {
   td: "TD",
+  tds: "TD",
   "technical director": "TD",
   "technical directors": "TD",
   "audio 1": "A1",
   "audio engineer": "A1",
   a1: "A1",
+  a1s: "A1",
   a2: "A2",
+  a2s: "A2",
   "stage manager": "Stage Manager",
+  "stage managers": "Stage Manager",
   "gfx operator": "GFX Op",
+  "gfx operators": "GFX Op",
   "gfx op": "GFX Op",
+  "gfx ops": "GFX Op",
   "video operator": "V1",
+  "video operators": "V1",
   "video engineer": "V1",
+  "video engineers": "V1",
   v1: "V1",
+  v1s: "V1",
 };
 
 const HIGH_CONFIDENCE_THRESHOLD = 0.85;
@@ -236,6 +252,7 @@ function normalizeLookupValue(value: string) {
   return value
     .trim()
     .toLowerCase()
+    .replace(/\b([a-z0-9]+)['’]s\b/g, "$1s")
     .replace(/[.,/#!$%^&*;:{}=_`~()'"]/g, " ")
     .replace(/\s+/g, " ");
 }
@@ -1226,10 +1243,24 @@ export async function analyzeBackfillInsights(input: {
 
   insights.sort((a, b) => Number(b.hasGap) - Number(a.hasGap) || a.show.localeCompare(b.show) || a.role.localeCompare(b.role));
 
+  let lowestBackfillSummary: BackfillInsightsResult["lowestBackfillSummary"] = null;
+  if (resolvedRole && !resolvedShow && insights.length > 0) {
+    const minimum = Math.min(...insights.map((row) => row.backupActiveCount));
+    const shows = insights.filter((row) => row.backupActiveCount === minimum).map((row) => row.show);
+    lowestBackfillSummary = {
+      role: resolvedRole,
+      metric: "backupActiveCount",
+      minimum,
+      shows: uniqueStrings(shows).sort((a, b) => a.localeCompare(b)),
+      tied: uniqueStrings(shows).length > 1,
+    };
+  }
+
   return {
     show: resolvedShow?.name ?? null,
     role: resolvedRole ?? null,
     insights,
+    lowestBackfillSummary,
     reason: insights.length === 0 ? "No backfill preferences matched the requested filters." : undefined,
   };
 }
