@@ -65,18 +65,21 @@ export function BackfillBoard({ data }: BackfillBoardProps) {
 
   const nameById = useMemo(() => {
     const names = new Map<string, string>();
+    const phones = new Map<string, string | undefined>();
     const statuses = new Map<string, SkillStatus>();
     for (const roleData of data.roles) {
       for (const entry of roleData.permanentCrew) {
         names.set(entry.resourceId, entry.resourceName);
+        phones.set(entry.resourceId, entry.resourcePhone);
         statuses.set(entry.resourceId, entry.status);
       }
       for (const entry of roleData.backupList) {
         names.set(entry.resourceId, entry.resourceName);
+        phones.set(entry.resourceId, entry.resourcePhone);
         statuses.set(entry.resourceId, entry.status);
       }
     }
-    return { names, statuses };
+    return { names, phones, statuses };
   }, [data.roles]);
 
   const activeLists = roleLists[activeRole] ?? { permanent: [], backup: [] };
@@ -320,6 +323,7 @@ export function BackfillBoard({ data }: BackfillBoardProps) {
                       key={resourceId}
                       id={resourceId}
                       name={nameById.names.get(resourceId) ?? "Unknown"}
+                      phone={nameById.phones.get(resourceId)}
                       status={nameById.statuses.get(resourceId) ?? "NA"}
                       disabled={!editable}
                       contactOpen={openContactByRole[activeRole] === resourceId}
@@ -351,6 +355,7 @@ export function BackfillBoard({ data }: BackfillBoardProps) {
                       key={resourceId}
                       id={resourceId}
                       name={nameById.names.get(resourceId) ?? "Unknown"}
+                      phone={nameById.phones.get(resourceId)}
                       status={nameById.statuses.get(resourceId) ?? "NA"}
                       disabled={!editable}
                       contactOpen={openContactByRole[activeRole] === resourceId}

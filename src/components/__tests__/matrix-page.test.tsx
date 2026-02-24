@@ -14,6 +14,8 @@ vi.mock("@/src/lib/actions/control-rooms", () => ({
 
 vi.mock("@/src/lib/actions/resources", () => ({
   addResourceAction: async () => ({ ok: true }),
+  removeResourceAction: async () => ({ ok: true }),
+  updateResourceAction: async () => ({ ok: true }),
 }));
 
 const data: MatrixPageData = {

@@ -5,11 +5,10 @@ import { CSS } from "@dnd-kit/utilities";
 import type { SkillStatus } from "@/src/lib/types";
 import { cn } from "@/src/lib/utils";
 
-const DUMMY_PHONE_NUMBER = "212-555-5555";
-
 export interface SortableResourceItemProps {
     id: string;
     name: string;
+    phone?: string;
     status: SkillStatus;
     disabled: boolean;
     contactOpen: boolean;
@@ -19,6 +18,7 @@ export interface SortableResourceItemProps {
 export function SortableResourceItem({
     id,
     name,
+    phone,
     status,
     disabled,
     contactOpen,
@@ -95,7 +95,7 @@ export function SortableResourceItem({
                         <span className="font-semibold text-[color:var(--text-strong)]">Name:</span> {name}
                     </div>
                     <div>
-                        <span className="font-semibold text-[color:var(--text-strong)]">Phone:</span> {DUMMY_PHONE_NUMBER}
+                        <span className="font-semibold text-[color:var(--text-strong)]">Phone:</span> {phone || "No phone on file"}
                     </div>
                 </div>
             ) : null}

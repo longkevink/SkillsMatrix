@@ -4,15 +4,19 @@ import { MatrixDashboard } from "@/src/components/matrix-dashboard";
 import { MockRoleProvider } from "@/src/components/mock-role-provider";
 import type { DashboardData } from "@/src/lib/types";
 
-const updateSkillActionMock = vi.hoisted(() => vi.fn() as any);
-const addResourceActionMock = vi.hoisted(() => vi.fn() as any);
+const updateSkillActionMock = vi.hoisted(() => vi.fn(async () => ({ ok: true })));
+const addResourceActionMock = vi.hoisted(() => vi.fn(async () => ({ ok: true })));
+const removeResourceActionMock = vi.hoisted(() => vi.fn(async () => ({ ok: true })));
+const updateResourceActionMock = vi.hoisted(() => vi.fn(async () => ({ ok: true })));
 
 vi.mock("@/src/lib/actions/skills", () => ({
-  updateSkillAction: (...args: any[]) => updateSkillActionMock(...args),
+  updateSkillAction: (...args: unknown[]) => updateSkillActionMock(...args),
 }));
 
 vi.mock("@/src/lib/actions/resources", () => ({
-  addResourceAction: (...args: any[]) => addResourceActionMock(...args),
+  addResourceAction: (...args: unknown[]) => addResourceActionMock(...args),
+  removeResourceAction: (...args: unknown[]) => removeResourceActionMock(...args),
+  updateResourceAction: (...args: unknown[]) => updateResourceActionMock(...args),
 }));
 
 const data: DashboardData = {
@@ -42,6 +46,16 @@ describe("MatrixDashboard interactions", () => {
   beforeEach(() => {
     window.localStorage.clear();
     updateSkillActionMock.mockResolvedValue({ ok: true });
+    addResourceActionMock.mockResolvedValue({
+      ok: true,
+      resource: {
+        id: "resource-2",
+        name: "John Doe",
+        role: "TD",
+      },
+    });
+    removeResourceActionMock.mockResolvedValue({ ok: true });
+    updateResourceActionMock.mockResolvedValue({ ok: true });
   });
 
   it("disables status editing for Read Only", () => {
@@ -116,7 +130,7 @@ describe("MatrixDashboard interactions", () => {
   });
 
   it("rolls back optimistic status when save fails", async () => {
-    updateSkillActionMock.mockResolvedValueOnce({ ok: false, error: "DB down" } as any);
+    updateSkillActionMock.mockResolvedValueOnce({ ok: false, error: "DB down" });
     window.localStorage.setItem("skills_manager_mock_role", "Manager");
 
     render(
@@ -167,5 +181,85 @@ describe("MatrixDashboard interactions", () => {
     expect(screen.getByRole("dialog", { name: "NOTE" })).toBeInTheDocument();
     expect(screen.getByDisplayValue("Confidential note")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save NOTE" })).toBeInTheDocument();
+  });
+
+  it("adds a person from role header and shows them in the matrix", async () => {
+    window.localStorage.setItem("skills_manager_mock_role", "Manager");
+
+    render(
+      <MockRoleProvider initialRole="Manager">
+        <MatrixDashboard data={data} />
+      </MockRoleProvider>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Add person to TD" }));
+
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "John Doe" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Add Person" }));
+
+    await waitFor(() => {
+      expect(addResourceActionMock).toHaveBeenCalled();
+      expect(screen.getByText("John Doe")).toBeInTheDocument();
+    });
+  });
+
+  it("removes a person from the matrix", async () => {
+    window.localStorage.setItem("skills_manager_mock_role", "Manager");
+
+    render(
+      <MockRoleProvider initialRole="Manager">
+        <MatrixDashboard data={data} />
+      </MockRoleProvider>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Open actions for Ava Brooks" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Delete selected resource" }));
+
+    await waitFor(() => {
+      expect(removeResourceActionMock).toHaveBeenCalledWith({
+        resourceId: "resource-1",
+        mockRole: "Manager",
+      });
+      expect(screen.queryByText("Ava Brooks")).not.toBeInTheDocument();
+    });
+  });
+
+  it("edits a person name and role from the row actions menu", async () => {
+    window.localStorage.setItem("skills_manager_mock_role", "Manager");
+
+    render(
+      <MockRoleProvider initialRole="Manager">
+        <MatrixDashboard data={data} />
+      </MockRoleProvider>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Open actions for Ava Brooks" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Edit selected resource" }));
+
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Ava B" },
+    });
+    fireEvent.change(screen.getByLabelText("Role"), {
+      target: { value: "AD" },
+    });
+    fireEvent.change(screen.getByLabelText("Phone Number (Optional)"), {
+      target: { value: "555-0100" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      expect(updateResourceActionMock).toHaveBeenCalledWith({
+        resourceId: "resource-1",
+        name: "Ava B",
+        role: "AD",
+        phone: "555-0100",
+        mockRole: "Manager",
+      });
+      expect(screen.getByText("Ava B")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Open actions for Ava B" })).toBeInTheDocument();
+    });
   });
 });

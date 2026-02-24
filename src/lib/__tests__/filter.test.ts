@@ -7,6 +7,7 @@ const resources: DashboardResource[] = [
     id: "r1",
     name: "Ava Brooks",
     role: "TD",
+    controlRoomSkills: {},
     skills: {
       s1: { status: "Active", notes: null },
     },
@@ -15,6 +16,7 @@ const resources: DashboardResource[] = [
     id: "r2",
     name: "Liam Carter",
     role: "A1",
+    controlRoomSkills: {},
     skills: {
       s1: { status: "Refresh", notes: null },
     },
@@ -23,9 +25,17 @@ const resources: DashboardResource[] = [
     id: "r3",
     name: "Mia Perez",
     role: "TD",
+    controlRoomSkills: {},
     skills: {
       s1: { status: "Red", notes: "Blocked" },
     },
+  },
+  {
+    id: "r4",
+    name: "No Skill User",
+    role: "A2",
+    controlRoomSkills: {},
+    skills: {},
   },
 ];
 
@@ -60,6 +70,28 @@ describe("filterResources", () => {
       capabilityStatuses: [],
     });
 
-    expect(result).toHaveLength(3);
+    expect(result).toHaveLength(4);
+  });
+
+  it("does not include explicit non-NA skills when filtering NA without a show", () => {
+    const result = filterResources(resources, {
+      selectedRoles: [],
+      search: "",
+      capabilityShowId: null,
+      capabilityStatuses: ["NA"],
+    });
+
+    expect(result.map((resource) => resource.id)).toEqual(["r4"]);
+  });
+
+  it("treats missing skill for selected show as NA", () => {
+    const result = filterResources(resources, {
+      selectedRoles: [],
+      search: "",
+      capabilityShowId: "s2",
+      capabilityStatuses: ["NA"],
+    });
+
+    expect(result.map((resource) => resource.id)).toEqual(["r1", "r2", "r3", "r4"]);
   });
 });

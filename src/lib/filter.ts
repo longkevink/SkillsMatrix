@@ -33,16 +33,24 @@ export function filterResources(resources: DashboardResource[], filters: MatrixF
       if (filters.capabilityShowId) {
         // Specific show selected
         const skill = resource.skills[filters.capabilityShowId];
-        if (!skill || !statusSet.has(skill.status)) {
+        const currentStatus = skill ? skill.status : "NA";
+        if (!statusSet.has(currentStatus)) {
           return false;
         }
       } else {
-        // No specific show selected: Check if ANY show matches the selected statuses
-        // We check if the resource has any skill that matches one of the selected statuses
+        // No specific show selected: at least one explicitly defined skill must match.
+        // If no skills are defined at all, we treat the resource as NA for this broad filter.
         const skills = Object.values(resource.skills);
-        const hasMatchingStatus = skills.some((s) => statusSet.has(s.status));
-        if (!hasMatchingStatus) {
-          return false;
+
+        if (skills.length === 0) {
+          if (!statusSet.has("NA")) {
+            return false;
+          }
+        } else {
+          const hasMatchingStatus = skills.some((s) => statusSet.has(s.status));
+          if (!hasMatchingStatus) {
+            return false;
+          }
         }
       }
     }

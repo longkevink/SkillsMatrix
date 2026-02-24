@@ -68,7 +68,7 @@ export async function getMatrixPageData(): Promise<MatrixPageData> {
     supabase.from("shows").select("id,name,type,created_at").order("name", { ascending: true }),
     supabase
       .from("resources")
-      .select("id,name,role,created_at")
+      .select("id,name,role,phone,created_at")
       .order("role", { ascending: true })
       .order("name", { ascending: true }),
     supabase.from("resource_skills").select("id,resource_id,show_id,status,notes,updated_at"),
@@ -166,6 +166,7 @@ export async function getMatrixPageData(): Promise<MatrixPageData> {
       id: resource.id,
       name: resource.name,
       role: resource.role,
+      phone: resource.phone,
       skills: skillsByResource.get(resource.id) ?? {},
       controlRoomSkills: controlRoomSkillsByResource.get(resource.id) ?? {},
     })),

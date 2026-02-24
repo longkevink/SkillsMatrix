@@ -22,7 +22,11 @@ export async function getBackfillPageData(showId?: string): Promise<BackfillPage
 
   const [showsRes, resourcesRes, skillsRes] = await Promise.all([
     supabase.from("shows").select("id,name,type,created_at").order("name", { ascending: true }),
-    supabase.from("resources").select("id,name,role,created_at").order("role", { ascending: true }).order("name", { ascending: true }),
+    supabase
+      .from("resources")
+      .select("id,name,role,phone,created_at")
+      .order("role", { ascending: true })
+      .order("name", { ascending: true }),
     supabase.from("resource_skills").select("resource_id,show_id,status"),
   ]);
 
@@ -69,6 +73,7 @@ export async function getBackfillPageData(showId?: string): Promise<BackfillPage
   }
 
   const resourceNameById = new Map(resources.map((resource) => [resource.id, resource.name]));
+  const resourcePhoneById = new Map(resources.map((resource) => [resource.id, resource.phone]));
 
   const grouped = new Map<string, { permanentCrew: BackfillEntry[]; backupList: BackfillEntry[] }>();
   const prefRows = (rows ?? []) as BackfillPreferenceRow[];
@@ -80,6 +85,7 @@ export async function getBackfillPageData(showId?: string): Promise<BackfillPage
       id: row.id,
       resourceId: row.resource_id,
       resourceName: resourceNameById.get(row.resource_id) ?? "Unknown Resource",
+      resourcePhone: resourcePhoneById.get(row.resource_id) ?? undefined,
       rank: row.rank,
       isPermanentCrew: row.is_permanent_crew,
       status: skillStatusByResource.get(row.resource_id) ?? "NA",
@@ -104,6 +110,7 @@ export async function getBackfillPageData(showId?: string): Promise<BackfillPage
         id: `unassigned-${resource.id}`,
         resourceId: resource.id,
         resourceName: resource.name,
+        resourcePhone: resource.phone,
         rank: 9999,
         isPermanentCrew: false,
         status: skillStatusByResource.get(resource.id) ?? "NA",
