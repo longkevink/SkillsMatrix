@@ -1,6 +1,7 @@
 "use client";
 
-import { Send, Sparkles, Bot } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Send, Sparkles, Bot, CalendarDays, Pencil } from "lucide-react";
 import type { ExecutiveSnapshot } from "@/src/lib/types";
 
 interface ChatInterfaceProps {
@@ -10,6 +11,15 @@ interface ChatInterfaceProps {
 const quickActions = ["Critical Gaps", "Available Backfills", "Training Pipeline", "At-Risk Roles", "Shift Summary"];
 
 export function ChatInterface({ snapshot }: ChatInterfaceProps) {
+  const [showBot, setShowBot] = useState(true);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setShowBot((prev) => !prev);
+    }, 3000); // toggle every 3 seconds
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div
       className="rounded-xl border border-[color:var(--border-subtle)] bg-[linear-gradient(145deg,var(--surface-1),var(--surface-2))] shadow-[0_12px_24px_-18px_rgba(15,23,42,0.5)]"
@@ -19,8 +29,20 @@ export function ChatInterface({ snapshot }: ChatInterfaceProps) {
         {/* Top Row: AI Identity & Actions */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[color:var(--surface-strong)] text-white shadow-inner">
-              <Bot className="h-5 w-5" />
+            <div className="relative flex h-10 w-10 overflow-hidden items-center justify-center rounded-xl bg-white text-[color:var(--accent)] shadow-inner">
+              <div
+                className={`absolute inset-0 flex items-center justify-center transition-all duration-500 ${showBot ? 'opacity-100 scale-100 rotate-0' : 'opacity-0 scale-50 -rotate-180'}`}
+              >
+                <Bot className="h-5 w-5" />
+              </div>
+              <div
+                className={`absolute inset-0 flex items-center justify-center transition-all duration-500 ${!showBot ? 'opacity-100 scale-100 rotate-0' : 'opacity-0 scale-50 rotate-180'}`}
+              >
+                <div className="relative">
+                  <CalendarDays className="h-5 w-5" />
+                  <Pencil className="absolute -bottom-1 -right-1 h-3 w-3 text-[#38bdf8] stroke-[3px]" />
+                </div>
+              </div>
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -62,7 +84,7 @@ export function ChatInterface({ snapshot }: ChatInterfaceProps) {
             className="w-full rounded-xl border border-[color:var(--border-subtle)] bg-[color:var(--surface-1)] py-3 pl-10 pr-12 text-sm font-medium text-[color:var(--text-strong)] placeholder:text-[color:var(--text-muted)]/60 shadow-[inset_0_1px_2px_rgba(0,0,0,0.04)] transition-all focus:border-[color:var(--accent)] focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--accent)_15%,transparent)]"
           />
           <button
-            className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-lg bg-[color:var(--surface-strong)] px-3 py-2 text-white shadow-[0_2px_4px_rgba(0,0,0,0.1)] transition-all hover:bg-[color:var(--accent)] active:scale-95"
+            className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-lg bg-[color:var(--accent)] px-3 py-2 text-white shadow-[0_2px_4px_rgba(0,0,0,0.1)] transition-all hover:bg-[color:var(--text-strong)] active:scale-95"
             aria-label="Send message"
           >
             <Send className="h-4 w-4" />
@@ -70,6 +92,6 @@ export function ChatInterface({ snapshot }: ChatInterfaceProps) {
         </div>
       </div>
 
-    </div>
+    </div >
   );
 }
