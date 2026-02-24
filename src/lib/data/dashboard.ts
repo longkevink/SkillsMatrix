@@ -16,7 +16,7 @@ export async function getDashboardData(): Promise<DashboardData> {
     supabase.from("shows").select("id,name,type,created_at").order("name", { ascending: true }),
     supabase
       .from("resources")
-      .select("id,name,role,created_at")
+      .select("id,name,role,phone,created_at")
       .order("role", { ascending: true })
       .order("name", { ascending: true }),
     supabase.from("resource_skills").select("id,resource_id,show_id,status,notes,updated_at"),
@@ -70,6 +70,7 @@ export async function getDashboardData(): Promise<DashboardData> {
       id: resource.id,
       name: resource.name,
       role: resource.role,
+      phone: resource.phone,
       skills: skillsByResource.get(resource.id) ?? {},
       controlRoomSkills: crSkillsByResource.get(resource.id) ?? {},
     })),

@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
+import { getAuthCookieName, verifySignedAuthToken } from '@/src/lib/auth-session';
 
-export function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
     // Allow static assets, images, and the login page itself to pass through
@@ -16,11 +17,9 @@ export function middleware(request: NextRequest) {
         return NextResponse.next();
     }
 
-    // Check for the authentication cookie
-    const authCookie = request.cookies.get('site_auth');
+    const authCookie = request.cookies.get(getAuthCookieName());
 
-    // If no auth cookie, redirect to login page
-    if (!authCookie || authCookie.value !== 'authenticated') {
+    if (!authCookie || !(await verifySignedAuthToken(authCookie.value))) {
         const loginUrl = new URL('/login', request.url);
         return NextResponse.redirect(loginUrl);
     }

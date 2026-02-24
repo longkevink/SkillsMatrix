@@ -54,6 +54,7 @@ export interface BackfillEntry {
   id: string;
   resourceId: string;
   resourceName: string;
+  resourcePhone?: string;
   rank: number;
   isPermanentCrew: boolean;
   status: SkillStatus;

@@ -1,8 +1,11 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { updateSkillAction } from "@/src/lib/actions/skills";
+import { removeResourceAction } from "@/src/lib/actions/resources";
 import { AddUserDialog } from "@/src/components/matrix/add-user-dialog";
+import { EditUserDialog } from "@/src/components/matrix/edit-user-dialog";
 import { CellEditorDialog } from "@/src/components/cell-editor-dialog";
 import { SKILL_STATUSES } from "@/src/lib/constants";
 import { canEdit, canViewNotes } from "@/src/lib/mock-role";
@@ -44,10 +47,14 @@ export function MatrixDashboard({ data }: MatrixDashboardProps) {
   const [activeCell, setActiveCell] = useState<ActiveCell | null>(null);
   const [savingCells, setSavingCells] = useState<Record<string, boolean>>({});
   const [openStatusMenuKey, setOpenStatusMenuKey] = useState<string | null>(null);
+  const [openResourceMenuId, setOpenResourceMenuId] = useState<string | null>(null);
+  const [resourceMenuPosition, setResourceMenuPosition] = useState<{ top: number; left: number } | null>(null);
   const [isNotesSaving, setIsNotesSaving] = useState(false);
+  const [removingResourceIds, setRemovingResourceIds] = useState<Record<string, boolean>>({});
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isScrolled, setIsScrolled] = useState(false);
   const [addUserRole, setAddUserRole] = useState<string | null>(null);
+  const [editResource, setEditResource] = useState<{ id: string; name: string; role: string; phone?: string } | null>(null);
   const boardRef = useRef<HTMLDivElement>(null);
   const lastTriggerRef = useRef<HTMLButtonElement | null>(null);
 
@@ -59,6 +66,17 @@ export function MatrixDashboard({ data }: MatrixDashboardProps) {
 
       if (!boardRef.current.contains(event.target as Node)) {
         setOpenStatusMenuKey(null);
+        setOpenResourceMenuId(null);
+        setResourceMenuPosition(null);
+        return;
+      }
+
+      const target = event.target as HTMLElement;
+      const clickedResourceMenu = target.closest("[data-resource-menu]");
+      const clickedResourceMenuTrigger = target.closest("[data-resource-menu-trigger]");
+      if (!clickedResourceMenu && !clickedResourceMenuTrigger) {
+        setOpenResourceMenuId(null);
+        setResourceMenuPosition(null);
       }
     };
 
@@ -239,6 +257,63 @@ export function MatrixDashboard({ data }: MatrixDashboardProps) {
     setIsNotesSaving(false);
   };
 
+  const removeResource = async (resource: DashboardResource) => {
+    if (!editable) {
+      return;
+    }
+
+    setErrorMessage(null);
+    setOpenStatusMenuKey(null);
+    setOpenResourceMenuId(null);
+    setResourceMenuPosition(null);
+    setRemovingResourceIds((prev) => ({ ...prev, [resource.id]: true }));
+
+    let removedIndex = -1;
+    let removedResource: DashboardResource | null = null;
+
+    setResources((prev) => {
+      removedIndex = prev.findIndex((item) => item.id === resource.id);
+      if (removedIndex === -1) {
+        return prev;
+      }
+
+      removedResource = prev[removedIndex];
+      return prev.filter((item) => item.id !== resource.id);
+    });
+
+    const result = await removeResourceAction({
+      resourceId: resource.id,
+      mockRole,
+    });
+
+    if (!result.ok) {
+      if (removedResource) {
+        setResources((prev) => {
+          const resourceToRestore = removedResource;
+          if (!resourceToRestore) {
+            return prev;
+          }
+
+          if (prev.some((item) => item.id === resourceToRestore.id)) {
+            return prev;
+          }
+
+          const next = [...prev];
+          const insertAt = Math.max(0, Math.min(removedIndex, next.length));
+          next.splice(insertAt, 0, resourceToRestore);
+          return next;
+        });
+      }
+      setErrorMessage(`Could not remove ${resource.name}: ${result.error}`);
+    }
+
+    setRemovingResourceIds((prev) => {
+      const next = { ...prev };
+      delete next[resource.id];
+      return next;
+    });
+  };
+
   return (
     <div ref={boardRef} className="flex min-h-0 flex-1 flex-col gap-3">
       <MatrixFilterToolbar
@@ -280,6 +355,8 @@ export function MatrixDashboard({ data }: MatrixDashboardProps) {
         onScroll={(event) => {
           setIsScrolled(event.currentTarget.scrollTop > 0);
           setOpenStatusMenuKey(null);
+          setOpenResourceMenuId(null);
+          setResourceMenuPosition(null);
         }}
       >
         <table className="min-w-full border-separate border-spacing-0 text-xs text-[color:var(--text-muted)]">
@@ -292,13 +369,13 @@ export function MatrixDashboard({ data }: MatrixDashboardProps) {
             )}
           >
             <tr>
-              <th className="sticky left-0 z-30 border-b-2 border-r-2 border-slate-950 bg-[#14263c] px-4 py-3 text-left font-extrabold uppercase tracking-[0.14em] text-white">
+              <th className="sticky left-0 z-30 border-b-2 border-r-2 border-slate-950 bg-[#14263c] px-4 py-3 text-left font-extrabold uppercase tracking-[0.14em] text-white whitespace-nowrap">
                 Crew Member
               </th>
               {filteredShows.map((show) => (
                 <th
                   key={show.id}
-                  className="status-cell border-b-2 border-r-2 border-slate-950 bg-[#14263c] px-2 py-3 text-left font-extrabold uppercase tracking-[0.11em] text-white"
+                  className="status-cell border-b-2 border-r-2 border-slate-950 bg-[#14263c] px-2 py-3 text-left font-extrabold uppercase tracking-[0.11em] text-white whitespace-nowrap"
                 >
                   <div className="flex items-center gap-2">
                     <span
@@ -334,9 +411,49 @@ export function MatrixDashboard({ data }: MatrixDashboardProps) {
                       key={resource.id}
                       className={cn("transition-colors", index % 2 === 1 ? "bg-[color:var(--surface-2)]" : "bg-[color:var(--surface-1)]")}
                     >
-                      <td className="sticky left-0 z-10 border-b-2 border-r-2 border-slate-950 bg-inherit px-3 py-2">
-                        <div className="text-[13px] font-black tracking-tight text-[color:var(--text-strong)]">{resource.name}</div>
-                        <div className="text-[9px] font-black uppercase tracking-[0.12em] text-[color:var(--text-muted)]">{resource.role}</div>
+                      <td className="sticky left-0 z-10 overflow-visible border-b-2 border-r-2 border-slate-950 bg-inherit px-3 py-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <div className="text-[13px] font-black tracking-tight text-[color:var(--text-strong)]">{resource.name}</div>
+                            <div className="text-[9px] font-black uppercase tracking-[0.12em] text-[color:var(--text-muted)]">{resource.role}</div>
+                          </div>
+                          {editable ? (
+                            <div className="flex items-start">
+                              <button
+                                type="button"
+                                data-resource-menu-trigger="true"
+                                onClick={(event) => {
+                                  setOpenStatusMenuKey(null);
+                                  const triggerRect = event.currentTarget.getBoundingClientRect();
+                                  setOpenResourceMenuId((prev) => {
+                                    if (prev === resource.id) {
+                                      setResourceMenuPosition(null);
+                                      return null;
+                                    }
+
+                                    const menuWidth = 88;
+                                    const menuHeight = 62;
+                                    const nextLeft = Math.max(
+                                      8,
+                                      Math.min(triggerRect.right - menuWidth, window.innerWidth - menuWidth - 8)
+                                    );
+                                    const nextTop = Math.max(
+                                      8,
+                                      Math.min(triggerRect.bottom + 4, window.innerHeight - menuHeight - 8)
+                                    );
+
+                                    setResourceMenuPosition({ top: nextTop, left: nextLeft });
+                                    return resource.id;
+                                  });
+                                }}
+                                className="rounded p-0.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                                aria-label={`Open actions for ${resource.name}`}
+                              >
+                                <ChevronDown className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          ) : null}
+                        </div>
                       </td>
 
                       {filteredShows.map((show) => {
@@ -409,12 +526,100 @@ export function MatrixDashboard({ data }: MatrixDashboardProps) {
         }}
       />
 
-      <AddUserDialog
-        open={addUserRole !== null}
-        defaultRole={addUserRole ?? ""}
-        roles={roles}
-        onClose={() => setAddUserRole(null)}
-      />
+      {addUserRole ? (
+        <AddUserDialog
+          defaultRole={addUserRole}
+          roles={roles}
+          onAdded={(resource) => {
+            setResources((prev) => [
+              ...prev,
+              {
+                ...resource,
+                skills: {},
+                controlRoomSkills: {},
+              },
+            ]);
+          }}
+          onClose={() => setAddUserRole(null)}
+        />
+      ) : null}
+
+      {editResource ? (
+        <EditUserDialog
+          resourceId={editResource.id}
+          initialName={editResource.name}
+          initialRole={editResource.role}
+          initialPhone={editResource.phone}
+          roles={roles}
+          onUpdated={(updatedResource) => {
+            setResources((prev) =>
+              prev.map((resource) =>
+                resource.id === updatedResource.id
+                  ? {
+                      ...resource,
+                      name: updatedResource.name,
+                      role: updatedResource.role,
+                      phone: updatedResource.phone,
+                    }
+                  : resource
+              )
+            );
+          }}
+          onClose={() => setEditResource(null)}
+        />
+      ) : null}
+
+      {openResourceMenuId && resourceMenuPosition ? (
+        <div
+          role="menu"
+          data-resource-menu="true"
+          aria-label={`Resource actions`}
+          className="fixed z-[70] min-w-[88px] rounded border border-slate-200 bg-white p-0.5 shadow-md"
+          style={{ top: resourceMenuPosition.top, left: resourceMenuPosition.left }}
+        >
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              const resource = resources.find((item) => item.id === openResourceMenuId);
+              setOpenResourceMenuId(null);
+              setResourceMenuPosition(null);
+              if (!resource) {
+                return;
+              }
+              setEditResource({
+                id: resource.id,
+                name: resource.name,
+                role: resource.role,
+                phone: resource.phone,
+              });
+            }}
+            className="w-full rounded px-1.5 py-0.5 text-left text-[9px] font-semibold text-slate-700 hover:bg-slate-100"
+            aria-label="Edit selected resource"
+          >
+            Edit
+          </button>
+          <div className="my-0.5 h-px bg-slate-200" />
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              const resource = resources.find((item) => item.id === openResourceMenuId);
+              setOpenResourceMenuId(null);
+              setResourceMenuPosition(null);
+              if (!resource) {
+                return;
+              }
+              void removeResource(resource);
+            }}
+            disabled={Boolean(openResourceMenuId && removingResourceIds[openResourceMenuId])}
+            className="w-full rounded px-1.5 py-0.5 text-left text-[9px] font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+            aria-label="Delete selected resource"
+          >
+            {openResourceMenuId && removingResourceIds[openResourceMenuId] ? "Deleting..." : "Delete"}
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

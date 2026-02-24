@@ -6,22 +6,27 @@ import { useMockRole } from "@/src/components/mock-role-provider";
 import { canEdit } from "@/src/lib/mock-role";
 import { X } from "lucide-react";
 
+interface AddedResource {
+    id: string;
+    name: string;
+    role: string;
+    phone?: string;
+}
+
 interface AddUserDialogProps {
-    open: boolean;
     defaultRole: string;
     roles: string[];
     onClose: () => void;
+    onAdded: (resource: AddedResource) => void;
 }
 
-export function AddUserDialog({ open, defaultRole, roles, onClose }: AddUserDialogProps) {
+export function AddUserDialog({ defaultRole, roles, onClose, onAdded }: AddUserDialogProps) {
     const { mockRole } = useMockRole();
     const [name, setName] = useState("");
     const [role, setRole] = useState(defaultRole);
     const [phone, setPhone] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
-
-    if (!open) return null;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -49,8 +54,7 @@ export function AddUserDialog({ open, defaultRole, roles, onClose }: AddUserDial
         if (!result.ok) {
             setError(result.error);
         } else {
-            setName("");
-            setPhone("");
+            onAdded(result.resource);
             onClose();
         }
     };

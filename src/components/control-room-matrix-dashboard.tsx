@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { updateControlRoomSkillAction } from "@/src/lib/actions/control-rooms";
 import { CellEditorDialog } from "@/src/components/cell-editor-dialog";
 import { SKILL_STATUSES } from "@/src/lib/constants";
@@ -335,13 +335,13 @@ export function ControlRoomMatrixDashboard({ data }: ControlRoomMatrixDashboardP
             )}
           >
             <tr>
-              <th className="sticky left-0 z-30 border-b-2 border-r-2 border-slate-950 bg-[#14263c] px-3 py-2 text-left font-extrabold uppercase tracking-[0.14em] text-white min-w-[200px]">
+              <th className="sticky left-0 z-30 border-b-2 border-r-2 border-slate-950 bg-[#14263c] px-3 py-2 text-left font-extrabold uppercase tracking-[0.14em] text-white min-w-[200px] whitespace-nowrap">
                 Crew Member
               </th>
               {data.controlRooms.map((room) => (
                 <th
                   key={room.id}
-                  className="status-cell border-b-2 border-r-2 border-slate-950 bg-[#14263c] px-2 py-3 text-center font-extrabold uppercase tracking-[0.11em] text-white min-w-[100px]"
+                  className="status-cell border-b-2 border-r-2 border-slate-950 bg-[#14263c] px-2 py-3 text-center font-extrabold uppercase tracking-[0.11em] text-white min-w-[100px] whitespace-nowrap"
                 >
                   {room.code}
                 </th>
