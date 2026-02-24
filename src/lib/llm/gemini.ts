@@ -100,10 +100,11 @@ async function callGemini(contents: GeminiContent[]) {
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
   try {
-    const response = await fetch(`${GEMINI_API_BASE}/${model}:generateContent?key=${apiKey}`, {
+    const response = await fetch(`${GEMINI_API_BASE}/${model}:generateContent`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "x-goog-api-key": apiKey,
       },
       signal: controller.signal,
       body: JSON.stringify({
