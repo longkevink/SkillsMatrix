@@ -94,6 +94,24 @@ export async function getBackfillPageData(showId?: string): Promise<BackfillPage
     grouped.set(row.role, roleBucket);
   }
 
+  // Append any resources not explicitly assigned as backup to the end of their role's backup list
+  const assignedResourceIds = new Set(prefRows.map(row => row.resource_id));
+
+  for (const resource of resources) {
+    if (!assignedResourceIds.has(resource.id)) {
+      const roleBucket = grouped.get(resource.role) ?? { permanentCrew: [], backupList: [] };
+      roleBucket.backupList.push({
+        id: `unassigned-${resource.id}`,
+        resourceId: resource.id,
+        resourceName: resource.name,
+        rank: 9999,
+        isPermanentCrew: false,
+        status: skillStatusByResource.get(resource.id) ?? "NA",
+      });
+      grouped.set(resource.role, roleBucket);
+    }
+  }
+
   const allRoles = [...new Set(resources.map((resource) => resource.role))].sort((a, b) => a.localeCompare(b));
 
   return {

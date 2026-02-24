@@ -6,6 +6,7 @@ interface RoleGroupHeaderProps {
     isCollapsed: boolean;
     colSpan: number;
     onToggle: () => void;
+    onAddResource?: (role: string) => void;
 }
 
 export function RoleGroupHeader({
@@ -14,10 +15,14 @@ export function RoleGroupHeader({
     isCollapsed,
     colSpan,
     onToggle,
+    onAddResource,
 }: RoleGroupHeaderProps) {
     return (
-        <tr className="sticky top-[43px] z-10 shadow-sm">
-            <td colSpan={colSpan} className="border-b-2 border-slate-950 bg-[#1f344f] px-1 py-1">
+        <tr>
+            <td
+                colSpan={colSpan}
+                className="sticky top-[43px] z-10 border-b-2 border-slate-950 bg-[#1f344f] px-1 py-1 shadow-sm"
+            >
                 <button
                     type="button"
                     onClick={onToggle}
@@ -28,6 +33,17 @@ export function RoleGroupHeader({
                         <span className="rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold text-white">
                             {count}
                         </span>
+                        {onAddResource && (
+                            <div
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onAddResource(role);
+                                }}
+                                className="ml-2 flex h-5 w-5 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/25 transition-colors"
+                            >
+                                <span className="text-sm font-bold leading-none">+</span>
+                            </div>
+                        )}
                     </div>
                     <span className="text-white/80">{isCollapsed ? "+" : "-"}</span>
                 </button>

@@ -12,6 +12,7 @@ export interface Resource {
   id: string;
   name: string;
   role: string;
+  phone?: string;
   created_at: string;
 }
 
@@ -31,7 +32,7 @@ export interface ResourceSkill {
   updated_at: string;
 }
 
-export interface DashboardResource extends Pick<Resource, "id" | "name" | "role"> {
+export interface DashboardResource extends Pick<Resource, "id" | "name" | "role" | "phone"> {
   skills: Record<string, { status: SkillStatus; notes: string | null }>;
   controlRoomSkills: Record<string, { status: SkillStatus; notes: string | null }>;
 }

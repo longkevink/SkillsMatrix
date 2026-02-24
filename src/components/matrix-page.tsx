@@ -123,7 +123,7 @@ export function MatrixPage({ data }: MatrixPageProps) {
         role="tabpanel"
         aria-label="Skills"
         aria-hidden={activeTab !== "control-rooms"}
-        className={cn("min-h-0 flex-1", activeTab !== "control-rooms" && "hidden")}
+        className={cn("min-h-0 flex-1", activeTab === "control-rooms" ? "flex flex-col" : "hidden")}
       >
         <ControlRoomMatrixDashboard data={data} />
       </div>
@@ -133,7 +133,7 @@ export function MatrixPage({ data }: MatrixPageProps) {
         role="tabpanel"
         aria-label="Shows"
         aria-hidden={activeTab !== "shows"}
-        className={cn("min-h-0 flex-1", activeTab !== "shows" && "hidden")}
+        className={cn("min-h-0 flex-1", activeTab === "shows" ? "flex flex-col" : "hidden")}
       >
         <MatrixDashboard data={{ shows: data.shows, resources: data.resources }} />
       </div>

@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { updateSkillAction } from "@/src/lib/actions/skills";
+import { AddUserDialog } from "@/src/components/matrix/add-user-dialog";
 import { CellEditorDialog } from "@/src/components/cell-editor-dialog";
 import { SKILL_STATUSES } from "@/src/lib/constants";
 import { canEdit, canViewNotes } from "@/src/lib/mock-role";
@@ -46,6 +47,7 @@ export function MatrixDashboard({ data }: MatrixDashboardProps) {
   const [isNotesSaving, setIsNotesSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [addUserRole, setAddUserRole] = useState<string | null>(null);
   const boardRef = useRef<HTMLDivElement>(null);
   const lastTriggerRef = useRef<HTMLButtonElement | null>(null);
 
@@ -312,83 +314,82 @@ export function MatrixDashboard({ data }: MatrixDashboardProps) {
             </tr>
           </thead>
 
-          <tbody className="bg-[color:var(--surface-1)]">
-            {groupedResources.map(([role, roleResources]) => {
-              const isCollapsed = collapsedRoles.includes(role);
+          {groupedResources.map(([role, roleResources]) => {
+            const isCollapsed = collapsedRoles.includes(role);
 
-              return (
-                <Fragment key={role}>
-                  <RoleGroupHeader
-                    role={role}
-                    count={roleResources.length}
-                    isCollapsed={isCollapsed}
-                    colSpan={filteredShows.length + 1}
-                    onToggle={() => toggleRoleCollapse(role)}
-                  />
+            return (
+              <tbody key={role} className="bg-[color:var(--surface-1)]">
+                <RoleGroupHeader
+                  role={role}
+                  count={roleResources.length}
+                  isCollapsed={isCollapsed}
+                  colSpan={filteredShows.length + 1}
+                  onToggle={() => toggleRoleCollapse(role)}
+                  onAddResource={editable ? () => setAddUserRole(role) : undefined}
+                />
 
-                  {!isCollapsed &&
-                    roleResources.map((resource, index) => (
-                      <tr
-                        key={resource.id}
-                        className={cn("transition-colors", index % 2 === 1 ? "bg-[color:var(--surface-2)]" : "bg-[color:var(--surface-1)]")}
-                      >
-                        <td className="sticky left-0 z-10 border-b-2 border-r-2 border-slate-950 bg-inherit px-3 py-2">
-                          <div className="text-[13px] font-black tracking-tight text-[color:var(--text-strong)]">{resource.name}</div>
-                          <div className="text-[9px] font-black uppercase tracking-[0.12em] text-[color:var(--text-muted)]">{resource.role}</div>
-                        </td>
+                {!isCollapsed &&
+                  roleResources.map((resource, index) => (
+                    <tr
+                      key={resource.id}
+                      className={cn("transition-colors", index % 2 === 1 ? "bg-[color:var(--surface-2)]" : "bg-[color:var(--surface-1)]")}
+                    >
+                      <td className="sticky left-0 z-10 border-b-2 border-r-2 border-slate-950 bg-inherit px-3 py-2">
+                        <div className="text-[13px] font-black tracking-tight text-[color:var(--text-strong)]">{resource.name}</div>
+                        <div className="text-[9px] font-black uppercase tracking-[0.12em] text-[color:var(--text-muted)]">{resource.role}</div>
+                      </td>
 
-                        {filteredShows.map((show) => {
-                          const skill = getCellSkill(resource, show.id, "shows");
-                          const cellKey = `${resource.id}:${show.id}`;
-                          const isSaving = Boolean(savingCells[cellKey]);
-                          const hasNotes = Boolean(skill.notes?.trim());
+                      {filteredShows.map((show) => {
+                        const skill = getCellSkill(resource, show.id, "shows");
+                        const cellKey = `${resource.id}:${show.id}`;
+                        const isSaving = Boolean(savingCells[cellKey]);
+                        const hasNotes = Boolean(skill.notes?.trim());
 
-                          return (
-                            <StatusCell
-                              key={`${resource.id}-${show.id}`}
-                              cellKey={cellKey}
-                              status={skill.status}
-                              hasNotes={hasNotes}
-                              statusAriaLabel={`${resource.name} ${show.name} ${skill.status}`}
-                              noteAriaLabel={`Open note for ${resource.name} on ${show.name}`}
-                              isSaving={isSaving}
-                              editable={editable}
-                              notesVisible={notesVisible}
-                              isMenuOpen={openStatusMenuKey === cellKey}
-                              onToggleMenu={(key, button) => {
-                                lastTriggerRef.current = button;
-                                setOpenStatusMenuKey((prev) => (prev === key ? null : key));
-                              }}
-                              onSelectStatus={(nextStatus) =>
-                                onSelectStatus(resource, show.id, show.name, nextStatus)
-                              }
-                              onCloseMenu={() => {
-                                setOpenStatusMenuKey(null);
-                                lastTriggerRef.current?.focus();
-                              }}
-                              onOpenNote={() => {
-                                setErrorMessage(null);
-                                setOpenStatusMenuKey(null);
-                                setActiveCell({
-                                  resourceId: resource.id,
-                                  showId: show.id,
-                                  resourceName: resource.name,
-                                  showName: show.name,
-                                  status: skill.status,
-                                  notes: skill.notes ?? "",
-                                });
-                              }}
-                              resourceName={resource.name}
-                              columnName={show.name}
-                            />
-                          );
-                        })}
-                      </tr>
-                    ))}
-                </Fragment>
-              );
-            })}
-          </tbody>
+                        return (
+                          <StatusCell
+                            key={`${resource.id}-${show.id}`}
+                            cellKey={cellKey}
+                            status={skill.status}
+                            hasNotes={hasNotes}
+                            statusAriaLabel={`${resource.name} ${show.name} ${skill.status}`}
+                            noteAriaLabel={`Open note for ${resource.name} on ${show.name}`}
+                            isSaving={isSaving}
+                            editable={editable}
+                            notesVisible={notesVisible}
+                            isMenuOpen={openStatusMenuKey === cellKey}
+                            onToggleMenu={(key, button) => {
+                              lastTriggerRef.current = button;
+                              setOpenStatusMenuKey((prev) => (prev === key ? null : key));
+                            }}
+                            onSelectStatus={(nextStatus) =>
+                              onSelectStatus(resource, show.id, show.name, nextStatus)
+                            }
+                            onCloseMenu={() => {
+                              setOpenStatusMenuKey(null);
+                              lastTriggerRef.current?.focus();
+                            }}
+                            onOpenNote={() => {
+                              setErrorMessage(null);
+                              setOpenStatusMenuKey(null);
+                              setActiveCell({
+                                resourceId: resource.id,
+                                showId: show.id,
+                                resourceName: resource.name,
+                                showName: show.name,
+                                status: skill.status,
+                                notes: skill.notes ?? "",
+                              });
+                            }}
+                            resourceName={resource.name}
+                            columnName={show.name}
+                          />
+                        );
+                      })}
+                    </tr>
+                  ))}
+              </tbody>
+            );
+          })}
         </table>
       </section>
 
@@ -406,6 +407,13 @@ export function MatrixDashboard({ data }: MatrixDashboardProps) {
           setErrorMessage(null);
           setActiveCell(null);
         }}
+      />
+
+      <AddUserDialog
+        open={addUserRole !== null}
+        defaultRole={addUserRole ?? ""}
+        roles={roles}
+        onClose={() => setAddUserRole(null)}
       />
     </div>
   );

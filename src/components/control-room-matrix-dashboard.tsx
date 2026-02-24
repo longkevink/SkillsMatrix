@@ -349,85 +349,83 @@ export function ControlRoomMatrixDashboard({ data }: ControlRoomMatrixDashboardP
             </tr>
           </thead>
 
-          <tbody className="bg-[color:var(--surface-1)]">
-            {groupedResources.map(([role, roleResources]) => {
-              const isCollapsed = collapsedRoles.includes(role);
+          {groupedResources.map(([role, roleResources]) => {
+            const isCollapsed = collapsedRoles.includes(role);
 
-              return (
-                <Fragment key={role}>
-                  <RoleGroupHeader
-                    role={role}
-                    count={roleResources.length}
-                    isCollapsed={isCollapsed}
-                    colSpan={data.controlRooms.length + 1}
-                    onToggle={() => toggleRoleCollapse(role)}
-                  />
+            return (
+              <tbody key={role} className="bg-[color:var(--surface-1)]">
+                <RoleGroupHeader
+                  role={role}
+                  count={roleResources.length}
+                  isCollapsed={isCollapsed}
+                  colSpan={data.controlRooms.length + 1}
+                  onToggle={() => toggleRoleCollapse(role)}
+                />
 
-                  {!isCollapsed &&
-                    roleResources.map((resource, index) => {
-                      return (
-                        <tr
-                          key={resource.id}
-                          className={cn("transition-colors", index % 2 === 1 ? "bg-[color:var(--surface-2)]" : "bg-[color:var(--surface-1)]")}
-                        >
-                          <td className="sticky left-0 z-10 border-b-2 border-r-2 border-slate-950 bg-inherit px-3 py-2">
-                            <div className="text-[13px] font-black tracking-tight text-[color:var(--text-strong)]">{resource.name}</div>
-                            <div className="text-[9px] font-black uppercase tracking-[0.12em] text-[color:var(--text-muted)]">{resource.role}</div>
-                          </td>
+                {!isCollapsed &&
+                  roleResources.map((resource, index) => {
+                    return (
+                      <tr
+                        key={resource.id}
+                        className={cn("transition-colors", index % 2 === 1 ? "bg-[color:var(--surface-2)]" : "bg-[color:var(--surface-1)]")}
+                      >
+                        <td className="sticky left-0 z-10 border-b-2 border-r-2 border-slate-950 bg-inherit px-3 py-2">
+                          <div className="text-[13px] font-black tracking-tight text-[color:var(--text-strong)]">{resource.name}</div>
+                          <div className="text-[9px] font-black uppercase tracking-[0.12em] text-[color:var(--text-muted)]">{resource.role}</div>
+                        </td>
 
-                          {data.controlRooms.map((room) => {
-                            const skill = getCellSkill(resource, room.id, "controlRooms");
-                            const cellKey = `${resource.id}:${room.id}`;
-                            const isSaving = Boolean(savingCells[cellKey]);
-                            const hasNotes = Boolean(skill.notes?.trim());
+                        {data.controlRooms.map((room) => {
+                          const skill = getCellSkill(resource, room.id, "controlRooms");
+                          const cellKey = `${resource.id}:${room.id}`;
+                          const isSaving = Boolean(savingCells[cellKey]);
+                          const hasNotes = Boolean(skill.notes?.trim());
 
-                            return (
-                              <StatusCell
-                                key={room.id}
-                                cellKey={cellKey}
-                                status={skill.status}
-                                hasNotes={hasNotes}
-                                statusAriaLabel={`${resource.name} ${room.code} ${skill.status}`}
-                                noteAriaLabel={`Open note for ${resource.name} on ${room.code}`}
-                                isSaving={isSaving}
-                                editable={editable}
-                                notesVisible={notesVisible}
-                                isMenuOpen={openStatusMenuKey === cellKey}
-                                onToggleMenu={(key, button) => {
-                                  lastTriggerRef.current = button;
-                                  setOpenStatusMenuKey((prev) => (prev === key ? null : key));
-                                }}
-                                onSelectStatus={(nextStatus) =>
-                                  onSelectStatus(resource, room.id, room.code, nextStatus)
-                                }
-                                onCloseMenu={() => {
-                                  setOpenStatusMenuKey(null);
-                                  lastTriggerRef.current?.focus();
-                                }}
-                                onOpenNote={() => {
-                                  setErrorMessage(null);
-                                  setOpenStatusMenuKey(null);
-                                  setActiveCell({
-                                    resourceId: resource.id,
-                                    controlRoomId: room.id,
-                                    resourceName: resource.name,
-                                    controlRoomCode: room.code,
-                                    status: skill.status,
-                                    notes: skill.notes ?? "",
-                                  });
-                                }}
-                                resourceName={resource.name}
-                                columnName={room.code}
-                              />
-                            );
-                          })}
-                        </tr>
-                      );
-                    })}
-                </Fragment>
-              );
-            })}
-          </tbody>
+                          return (
+                            <StatusCell
+                              key={room.id}
+                              cellKey={cellKey}
+                              status={skill.status}
+                              hasNotes={hasNotes}
+                              statusAriaLabel={`${resource.name} ${room.code} ${skill.status}`}
+                              noteAriaLabel={`Open note for ${resource.name} on ${room.code}`}
+                              isSaving={isSaving}
+                              editable={editable}
+                              notesVisible={notesVisible}
+                              isMenuOpen={openStatusMenuKey === cellKey}
+                              onToggleMenu={(key, button) => {
+                                lastTriggerRef.current = button;
+                                setOpenStatusMenuKey((prev) => (prev === key ? null : key));
+                              }}
+                              onSelectStatus={(nextStatus) =>
+                                onSelectStatus(resource, room.id, room.code, nextStatus)
+                              }
+                              onCloseMenu={() => {
+                                setOpenStatusMenuKey(null);
+                                lastTriggerRef.current?.focus();
+                              }}
+                              onOpenNote={() => {
+                                setErrorMessage(null);
+                                setOpenStatusMenuKey(null);
+                                setActiveCell({
+                                  resourceId: resource.id,
+                                  controlRoomId: room.id,
+                                  resourceName: resource.name,
+                                  controlRoomCode: room.code,
+                                  status: skill.status,
+                                  notes: skill.notes ?? "",
+                                });
+                              }}
+                              resourceName={resource.name}
+                              columnName={room.code}
+                            />
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+              </tbody>
+            );
+          })}
         </table>
       </section>
 

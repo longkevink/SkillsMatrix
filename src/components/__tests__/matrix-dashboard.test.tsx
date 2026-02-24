@@ -4,10 +4,15 @@ import { MatrixDashboard } from "@/src/components/matrix-dashboard";
 import { MockRoleProvider } from "@/src/components/mock-role-provider";
 import type { DashboardData } from "@/src/lib/types";
 
-const updateSkillActionMock = vi.hoisted(() => vi.fn(async () => ({ ok: true })));
+const updateSkillActionMock = vi.hoisted(() => vi.fn() as any);
+const addResourceActionMock = vi.hoisted(() => vi.fn() as any);
 
 vi.mock("@/src/lib/actions/skills", () => ({
-  updateSkillAction: (...args: unknown[]) => updateSkillActionMock(...args),
+  updateSkillAction: (...args: any[]) => updateSkillActionMock(...args),
+}));
+
+vi.mock("@/src/lib/actions/resources", () => ({
+  addResourceAction: (...args: any[]) => addResourceActionMock(...args),
 }));
 
 const data: DashboardData = {
@@ -111,7 +116,7 @@ describe("MatrixDashboard interactions", () => {
   });
 
   it("rolls back optimistic status when save fails", async () => {
-    updateSkillActionMock.mockResolvedValueOnce({ ok: false, error: "DB down" });
+    updateSkillActionMock.mockResolvedValueOnce({ ok: false, error: "DB down" } as any);
     window.localStorage.setItem("skills_manager_mock_role", "Manager");
 
     render(

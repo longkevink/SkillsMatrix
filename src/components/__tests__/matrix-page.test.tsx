@@ -12,6 +12,10 @@ vi.mock("@/src/lib/actions/control-rooms", () => ({
   updateControlRoomSkillAction: async () => ({ ok: true }),
 }));
 
+vi.mock("@/src/lib/actions/resources", () => ({
+  addResourceAction: async () => ({ ok: true }),
+}));
+
 const data: MatrixPageData = {
   shows: [{ id: "show-1", name: "Nightly News", type: "Network" }],
   controlRooms: [{ id: "cr-1", code: "CR1A" }],
