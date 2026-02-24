@@ -70,8 +70,8 @@ function getGeminiConfig() {
 }
 
 function toGeminiContents(history: ChatTurn[], message: string): GeminiContent[] {
-  const historyContents = history.slice(-12).map((turn) => ({
-    role: turn.role === "assistant" ? "model" : "user",
+  const historyContents: GeminiContent[] = history.slice(-12).map((turn) => ({
+    role: turn.role === "assistant" ? ("model" as const) : ("user" as const),
     parts: [{ text: turn.content }],
   }));
 
@@ -100,10 +100,11 @@ async function callGemini(contents: GeminiContent[]) {
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
   try {
-    const response = await fetch(`${GEMINI_API_BASE}/${model}:generateContent?key=${apiKey}`, {
+    const response = await fetch(`${GEMINI_API_BASE}/${model}:generateContent`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "x-goog-api-key": apiKey,
       },
       signal: controller.signal,
       body: JSON.stringify({
