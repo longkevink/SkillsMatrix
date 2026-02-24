@@ -80,11 +80,14 @@ describe("skills and backfill insights", () => {
           { resource_id: "r-3", show_id: "show-1", status: "Active" },
           { resource_id: "r-4", show_id: "show-1", status: "Active" },
           { resource_id: "r-1", show_id: "show-2", status: "Active" },
+          { resource_id: "r-2", show_id: "show-2", status: "Red" },
         ],
         backfill_preferences: [
           { show_id: "show-1", role: "TD", resource_id: "r-1", rank: 1, is_permanent_crew: true },
           { show_id: "show-1", role: "TD", resource_id: "r-2", rank: 2, is_permanent_crew: true },
           { show_id: "show-1", role: "TD", resource_id: "r-3", rank: 1, is_permanent_crew: false },
+          { show_id: "show-2", role: "TD", resource_id: "r-1", rank: 1, is_permanent_crew: true },
+          { show_id: "show-2", role: "TD", resource_id: "r-2", rank: 1, is_permanent_crew: false },
         ],
       })
     );
@@ -141,5 +144,21 @@ describe("skills and backfill insights", () => {
         },
       },
     ]);
+  });
+
+  it("supports possessive role terms and returns lowest-backfill show summary", async () => {
+    const result = await analyzeBackfillInsights({
+      role: "TD's",
+      includePhone: false,
+    });
+
+    expect(result.role).toBe("TD");
+    expect(result.lowestBackfillSummary).toEqual({
+      role: "TD",
+      metric: "backupActiveCount",
+      minimum: 0,
+      shows: ["Nightly News"],
+      tied: false,
+    });
   });
 });

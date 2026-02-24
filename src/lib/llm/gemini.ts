@@ -54,6 +54,7 @@ const SYSTEM_INSTRUCTION = [
   "If a request needs one person approved across multiple shows simultaneously, use approved_staff_multi_show and return the intersection.",
   "Use query_skills for direct skills lookups by show, role, status, or person.",
   "Use backfill_insights to evaluate backfill gaps and recommended fill candidates.",
+  "For questions like 'what show has the lowest backfill for TD', treat show as the program/workstream and use backfill_insights with a role filter across all shows.",
   "For questions about least/most active roles, coverage, or role-level comparisons, use role_coverage_analysis and consider all roles and all statuses in scope.",
   "When show/role resolution indicates low confidence or needs clarification, ask the clarification question before attempting final staffing answers.",
   "Best backfill means rank order from configured backfill preferences.",

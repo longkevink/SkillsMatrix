@@ -205,7 +205,7 @@ export const geminiToolDeclarations = [
   {
     name: "backfill_insights",
     description:
-      "Analyzes backfill preferences and highlights gaps, active backup depth, and recommended fill candidates.",
+      "Analyzes backfill preferences and highlights gaps, active backup depth, recommended fill candidates, and lowest-backfill show comparisons for a requested role.",
     parameters: {
       type: "OBJECT",
       properties: {

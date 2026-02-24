@@ -18,6 +18,7 @@ describe("chat term normalization", () => {
   it("normalizes role aliases", () => {
     expect(normalizeRoleInput("technical director")).toBe("TD");
     expect(normalizeRoleInput("td")).toBe("TD");
+    expect(normalizeRoleInput("TD's")).toBe("TD");
     expect(normalizeRoleInput("A1")).toBe("A1");
   });
 });
