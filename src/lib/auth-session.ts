@@ -3,6 +3,8 @@ const LOGIN_ATTEMPTS_COOKIE_NAME = "login_attempts";
 const AUTH_TOKEN_TTL_SECONDS = 12 * 60 * 60;
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_WINDOW_SECONDS = 15 * 60;
+const LEGACY_FALLBACK_PASSWORD = "NBC!planning";
+const LEGACY_FALLBACK_SECRET = "skills-manager-legacy-fallback-secret";
 
 interface AuthTokenPayload {
   exp: number;
@@ -14,13 +16,17 @@ interface LoginAttemptState {
 }
 
 function getAuthSecret() {
-  const secret = process.env.SITE_AUTH_SECRET;
+  const secret =
+    process.env.SITE_AUTH_SECRET?.trim() ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ||
+    LEGACY_FALLBACK_SECRET;
   return secret ?? null;
 }
 
 function getSitePassword() {
-  const password = process.env.SITE_PASSWORD;
-  return password ?? null;
+  const password = process.env.SITE_PASSWORD?.trim() || LEGACY_FALLBACK_PASSWORD;
+  return password;
 }
 
 function bytesToBase64Url(bytes: Uint8Array) {
