@@ -6,6 +6,7 @@ import { MOCK_ROLE_COOKIE_NAME } from "@/src/lib/constants";
 import { parseMockRole } from "@/src/lib/mock-role";
 import { MockRoleProvider } from "@/src/components/mock-role-provider";
 import { TopNav } from "@/src/components/top-nav";
+import { ChatWindowProvider } from "@/src/components/chat/chat-window-provider";
 
 const sora = Sora({
   variable: "--font-sora",
@@ -45,10 +46,12 @@ export default async function RootLayout({
         className={`${sora.variable} ${sourceSans3.variable} ${ibmPlexMono.variable} antialiased`}
       >
         <MockRoleProvider initialRole={initialRole}>
-          <div className="min-h-screen bg-app text-[color:var(--text-strong)]">
-            <TopNav />
-            <main className="mx-auto w-full max-w-[1800px] px-3 py-3 md:px-4 md:py-4">{children}</main>
-          </div>
+          <ChatWindowProvider>
+            <div className="min-h-screen bg-app text-[color:var(--text-strong)]">
+              <TopNav />
+              <main className="mx-auto w-full max-w-[1800px] px-3 py-3 md:px-4 md:py-4">{children}</main>
+            </div>
+          </ChatWindowProvider>
         </MockRoleProvider>
       </body>
     </html>
