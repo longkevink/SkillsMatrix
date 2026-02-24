@@ -366,6 +366,16 @@ export function createChatToolExecutor(overrides: Partial<ChatToolDependencies> 
         role: result.role,
         normalizedShowInput: result.normalizedShowInput,
         normalizedRoleInput: result.normalizedRoleInput,
+        showResolution: result.showResolution,
+        roleResolution: result.roleResolution,
+        confidence: Math.min(result.showResolution.confidence || 1, result.roleResolution.confidence || 1),
+        needsClarification: result.showResolution.needsClarification || result.roleResolution.needsClarification,
+        clarificationPrompt:
+          result.showResolution.clarificationPrompt ?? result.roleResolution.clarificationPrompt ?? null,
+        candidates: [
+          ...result.showResolution.candidates.map((value) => ({ entityType: "show", value })),
+          ...result.roleResolution.candidates.map((value) => ({ entityType: "role", value })),
+        ].slice(0, 3),
       } as const;
     }
 
