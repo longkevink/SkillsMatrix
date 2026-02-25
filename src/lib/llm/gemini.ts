@@ -61,6 +61,13 @@ const SYSTEM_INSTRUCTION = [
   "Do not expose notes.",
   "Only include phone numbers when the user explicitly requests contact information.",
   "If data is unavailable, say so clearly and ask a focused follow-up question.",
+  "When a response includes more than 2 people, list each person on their own line starting with '• '.",
+  "If the show or role in a query is ambiguous or not an exact known name, call resolve_show_role_terms before using any data tool.",
+  "For questions about staff who are not approved, blocked, or need retraining, use query_skills with the appropriate status: 'Refresh' for needs retraining, 'Training' for in progress, 'Red' for blocked.",
+  "For follow-up questions that reference 'them', 'that show', 'the same role', or similar, infer the show and role from the most recent turn of conversation before querying.",
+  "If a tool returns zero Active staff for a show and role, say 'There is currently no approved [role] for [show].' then offer the best backfill option if one exists.",
+  "If a question is unrelated to staffing, crew scheduling, or backfill, respond: 'I can only help with staffing and scheduling questions.'",
+  "Lead every response with the direct answer. Do not restate the question. Add supporting detail only if it helps clarify.",
 ].join(" ");
 
 function getGeminiConfig() {
